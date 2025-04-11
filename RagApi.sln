@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35913.81 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RagApi", "RagApi\RagApi.csproj", "{E871AA1C-B237-4719-ADF9-B9E6A48304F4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E871AA1C-B237-4719-ADF9-B9E6A48304F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E871AA1C-B237-4719-ADF9-B9E6A48304F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E871AA1C-B237-4719-ADF9-B9E6A48304F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E871AA1C-B237-4719-ADF9-B9E6A48304F4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6A7D9580-F3B2-4D01-B5A0-7F3C771237FD}
+	EndGlobalSection
+EndGlobal
