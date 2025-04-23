@@ -3,11 +3,11 @@ trigger:
 - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'windows-latest'
 
 variables:
   buildConfiguration: 'Release'
-  dotNetVersion: '9.x'  # Varmista että tämä vastaa projektisi .NET-versiota
+  dotNetVersion: '8.0'  # Varmista että tämä vastaa projektisi .NET-versiota
 
 stages:
 - stage: Build
