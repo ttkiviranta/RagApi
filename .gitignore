@@ -3,6 +3,15 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Ignore appsettings with secrets
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+*.local.json
+
+# Don't ignore template
+!appsettings.json.template
+
 # User-specific files
 *.rsuser
 *.suo
