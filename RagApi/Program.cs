@@ -12,9 +12,26 @@ using RagApi.Models;
 using Azure.Search.Documents;
 using Azure;
 using RagApi.Auth;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.ApplicationInsights.DependencyCollector;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add Application Insights telemetry
+builder.Services.AddApplicationInsightsTelemetry(options => {
+    options.ConnectionString = "***REMOVED***;***REMOVED***;***REMOVED***;***REMOVED***";
+});
+
+// Configure Application Insights
+builder.Services.Configure<TelemetryConfiguration>((config) => {
+    var dependencyCollector = config.TelemetryProcessors.OfType<DependencyTrackingTelemetryModule>().FirstOrDefault();
+    if (dependencyCollector != null)
+    {
+        // Configure dependency tracking
+        dependencyCollector.EnableSqlCommandTextInstrumentation = true;
+    }
+});
 
 // Add Entity Framework Core DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
