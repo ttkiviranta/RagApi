@@ -104,8 +104,6 @@ var app = builder.Build();
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "RAG API v1"));
     app.UseDeveloperExceptionPage();
 
     // Seed default system prompts in development
@@ -192,6 +190,10 @@ If you're asked about topics not covered in the context, politely explain that y
         }
     }
 }
+
+// Enable Swagger in all environments
+app.UseSwagger();
+app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "RAG API v1"));
 
 // Add this line to ensure authentication is properly applied before authorization
 app.UseAuthentication();
