@@ -46,3 +46,37 @@ stages:
         pathToPublish: '$(Build.ArtifactStagingDirectory)'
         artifactName: 'drop'
       displayName: 'Publish artifacts'
+
+- stage: Deploy
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: DeployToAzure
+    steps:
+    - task: DownloadBuildArtifacts@1
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        artifactName: 'drop'
+        downloadPath: '$(System.ArtifactsDirectory)'
+      displayName: 'Download Build Artifacts'
+        
+    - task: AzureWebApp@1
+      inputs:
+        azureSubscription: 'AzureRagApiConnection'  # Käytä luomaasi service connection
+        appType: 'webApp'
+        appName: 'ragapi'  # App Servicen nimi Azuressa
+        package: '$(System.ArtifactStagingDirectory)/drop/*.zip'
+        deploymentMethod: 'auto'
+      displayName: 'Deploy to Azure App Service'
+    
+    # Valinnainen: Suorita tietokantamigraatiot
+    # - task: AzureCLI@2
+    #   inputs:
+    #     azureSubscription: 'AzureRagApiConnection'
+    #     scriptType: 'pscore'
+    #     scriptLocation: 'inlineScript'
+    #     inlineScript: |
+    #       cd $(System.ArtifactsDirectory)/drop/RagApi
+    #       dotnet ef database update --connection "$(SqlConnectionString)"
+    #   displayName: 'Run Database Migrations'
