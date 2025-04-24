@@ -227,6 +227,16 @@ The application can be deployed to Azure App Service:
 - **Models**: Data models
 - **Data**: Database context and configuration
 
+## Application Configuration
+
+This project uses the `appsettings.json.template` file to share the configuration structure without sensitive information.
+
+1. Copy `appsettings.json.template` to a file named `appsettings.json`
+2. Fill in the missing values with the correct values, which you can obtain from the project administrator
+3. Never commit the `appsettings.json` file to the Git repository!
+
+In production, the application uses Azure App Service environment variables.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
