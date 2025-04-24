@@ -7,7 +7,7 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
-  dotNetVersion: '8.0.x'  # Varmista että tämä vastaa projektisi .NET-versiota
+  dotNetVersion: '8.0.x'
 
 stages:
 - stage: Build
@@ -63,20 +63,9 @@ stages:
         
     - task: AzureWebApp@1
       inputs:
-        azureSubscription: 'AzureRagApiConnection'  # Käytä luomaasi service connection
+        azureSubscription: 'AzureRagApiConnection'
         appType: 'webApp'
-        appName: 'ragapi'  # App Servicen nimi Azuressa
-        package: '$(System.ArtifactStagingDirectory)/drop/*.zip'
+        appName: 'ragapi'
+        package: '$(System.ArtifactsDirectory)/drop/**/*.zip'
         deploymentMethod: 'auto'
       displayName: 'Deploy to Azure App Service'
-    
-    # Valinnainen: Suorita tietokantamigraatiot
-    # - task: AzureCLI@2
-    #   inputs:
-    #     azureSubscription: 'AzureRagApiConnection'
-    #     scriptType: 'pscore'
-    #     scriptLocation: 'inlineScript'
-    #     inlineScript: |
-    #       cd $(System.ArtifactsDirectory)/drop/RagApi
-    #       dotnet ef database update --connection "$(SqlConnectionString)"
-    #   displayName: 'Run Database Migrations'
