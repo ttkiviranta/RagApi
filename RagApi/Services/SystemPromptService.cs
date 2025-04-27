@@ -20,13 +20,14 @@ namespace RagApi.Services
 
         public async Task<SystemPrompt> CreateSystemPromptAsync(string name, string description, string promptText, bool isDefault = false)
         {
-            // If this is set as default, unset any other default prompt
+            // If this new prompt is to be the default, unset any existing defaults first
             if (isDefault)
             {
-                var currentDefault = await _dbContext.SystemPrompts.FirstOrDefaultAsync(sp => sp.IsDefault);
-                if (currentDefault != null)
+                var existingDefault = await _dbContext.SystemPrompts.FirstOrDefaultAsync(sp => sp.IsDefault);
+                if (existingDefault != null)
                 {
-                    currentDefault.IsDefault = false;
+                    existingDefault.IsDefault = false;
+                    // No need to save changes yet, we'll save everything at once
                 }
             }
 
@@ -43,6 +44,7 @@ namespace RagApi.Services
 
             return systemPrompt;
         }
+
 
         public async Task<SystemPrompt> GetSystemPromptAsync(string id)
         {
@@ -72,16 +74,23 @@ namespace RagApi.Services
                 throw new ArgumentException($"System prompt not found with ID {id}");
             }
 
-            // If this is set as default, unset any other default prompt
+            // If this prompt will become the default and isn't already the default
             if (isDefault && !systemPrompt.IsDefault)
             {
-                var currentDefault = await _dbContext.SystemPrompts.FirstOrDefaultAsync(sp => sp.IsDefault);
+                // First find and update the current default prompt (if any)
+                var currentDefault = await _dbContext.SystemPrompts
+                    .FirstOrDefaultAsync(sp => sp.IsDefault && sp.Id != id);
+
                 if (currentDefault != null)
                 {
+                    // Update the current default first
                     currentDefault.IsDefault = false;
+                    currentDefault.UpdatedAt = DateTime.UtcNow;
+                    await _dbContext.SaveChangesAsync();
                 }
             }
 
+            // Now update the target prompt
             systemPrompt.Name = name;
             systemPrompt.Description = description;
             systemPrompt.PromptText = promptText;
@@ -92,6 +101,8 @@ namespace RagApi.Services
 
             return systemPrompt;
         }
+
+
 
         public async Task<bool> DeleteSystemPromptAsync(string id)
         {
