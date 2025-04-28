@@ -36,5 +36,9 @@ namespace RagApi.Interfaces
         /// <param name="userId">Optional user ID to get personalized system prompt</param>
         /// <returns>Generated answer</returns>
         Task<string> GenerateDirectAnswerWithHistoryAsync(string query, List<Message> conversationHistory, string userId = null);
+        /// <summary>
+        /// Gets chat completions from OpenAI
+        /// </summary>
+        Task<string> GetChatCompletionsAsync(string systemPrompt, string userPrompt);
     }
 }

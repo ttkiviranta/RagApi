@@ -74,6 +74,16 @@ builder.Services.AddScoped<IOpenAIService, OpenAIService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IRagService, RagService>();
 
+// Register new recruitment application services
+builder.Services.AddScoped<ICandidateService, CandidateService>();
+builder.Services.AddScoped<IJobPostingService, JobPostingService>();
+builder.Services.AddScoped<IApplicationService, ApplicationService>();
+builder.Services.AddScoped<IInterviewService, InterviewService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
+builder.Services.AddScoped<IDocumentIntelligenceService, DocumentIntelligenceService>();
+builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+
 // Configure CORS to use allowed origins from appsettings
 builder.Services.AddCors(options =>
 {

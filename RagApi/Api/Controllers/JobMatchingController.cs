@@ -11,6 +11,7 @@ using RagApi.Api.Models;
 using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models;
+using RagApi.Models.Dto;
 
 namespace RagApi.Api.Controllers
 {
@@ -21,15 +22,18 @@ namespace RagApi.Api.Controllers
         private readonly IRagService _ragService;
         private readonly ISystemPromptService _systemPromptService;
         private readonly ApplicationDbContext _dbContext;
+        private readonly IJobMatchingService _jobMatchingService;
 
         public JobMatchingController(
             IRagService ragService,
             ISystemPromptService systemPromptService,
-            ApplicationDbContext dbContext)
+            ApplicationDbContext dbContext,
+            IJobMatchingService jobMatchingService)
         {
             _ragService = ragService;
             _systemPromptService = systemPromptService;
             _dbContext = dbContext;
+            _jobMatchingService = jobMatchingService;
         }
 
         /// <summary>
@@ -40,13 +44,13 @@ namespace RagApi.Api.Controllers
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest("No file was uploaded.");
+                return BadRequest(new { error = true, message = "No file was uploaded." });
             }
 
             // Currently only supporting PDF files
             if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             {
-                return BadRequest("Only PDF files are supported at this time.");
+                return BadRequest(new { error = true, message = "Only PDF files are supported at this time." });
             }
 
             try
@@ -57,15 +61,19 @@ namespace RagApi.Api.Controllers
                 // Store metadata to indicate this is a job posting
                 // In a real implementation, we would store this in a database
 
-                return Ok(new UploadDocumentResponse
+                return Ok(new
                 {
-                    DocumentId = documentId,
-                    Message = "Job posting processed successfully."
+                    error = false,
+                    data = new UploadDocumentResponse
+                    {
+                        DocumentId = documentId,
+                        Message = "Job posting processed successfully."
+                    }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error processing job posting: {ex.Message}");
+                return StatusCode(500, new { error = true, message = $"Error processing job posting: {ex.Message}" });
             }
         }
 
@@ -77,13 +85,13 @@ namespace RagApi.Api.Controllers
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest("No file was uploaded.");
+                return BadRequest(new { error = true, message = "No file was uploaded." });
             }
 
             // Currently only supporting PDF files
             if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             {
-                return BadRequest("Only PDF files are supported at this time.");
+                return BadRequest(new { error = true, message = "Only PDF files are supported at this time." });
             }
 
             try
@@ -94,15 +102,19 @@ namespace RagApi.Api.Controllers
                 // Store metadata to associate this resume with the candidate
                 // In a real implementation, we would store this in a database
 
-                return Ok(new UploadDocumentResponse
+                return Ok(new
                 {
-                    DocumentId = documentId,
-                    Message = $"Resume for candidate {candidateId} processed successfully."
+                    error = false,
+                    data = new UploadDocumentResponse
+                    {
+                        DocumentId = documentId,
+                        Message = $"Resume for candidate {candidateId} processed successfully."
+                    }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error processing resume: {ex.Message}");
+                return StatusCode(500, new { error = true, message = $"Error processing resume: {ex.Message}" });
             }
         }
 
@@ -114,13 +126,13 @@ namespace RagApi.Api.Controllers
         {
             if (file == null || file.Length == 0)
             {
-                return BadRequest("No file was uploaded.");
+                return BadRequest(new { error = true, message = "No file was uploaded." });
             }
 
             // Currently only supporting PDF files
             if (!file.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             {
-                return BadRequest("Only PDF files are supported at this time.");
+                return BadRequest(new { error = true, message = "Only PDF files are supported at this time." });
             }
 
             try
@@ -131,15 +143,19 @@ namespace RagApi.Api.Controllers
                 // Store metadata to associate this cover letter with the candidate
                 // In a real implementation, we would store this in a database
 
-                return Ok(new UploadDocumentResponse
+                return Ok(new
                 {
-                    DocumentId = documentId,
-                    Message = $"Cover letter for candidate {candidateId} processed successfully."
+                    error = false,
+                    data = new UploadDocumentResponse
+                    {
+                        DocumentId = documentId,
+                        Message = $"Cover letter for candidate {candidateId} processed successfully."
+                    }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error processing cover letter: {ex.Message}");
+                return StatusCode(500, new { error = true, message = $"Error processing cover letter: {ex.Message}" });
             }
         }
 
@@ -151,7 +167,7 @@ namespace RagApi.Api.Controllers
         {
             if (string.IsNullOrEmpty(request?.JobPosting))
             {
-                return BadRequest("Job posting cannot be empty.");
+                return BadRequest(new { error = true, message = "Job posting cannot be empty." });
             }
 
             try
@@ -215,11 +231,11 @@ namespace RagApi.Api.Controllers
                     }
                 }
 
-                return Ok(response);
+                return Ok(new { error = false, data = response });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error processing job matching request: {ex.Message}");
+                return StatusCode(500, new { error = true, message = $"Error processing job matching request: {ex.Message}" });
             }
         }
 
@@ -231,12 +247,12 @@ namespace RagApi.Api.Controllers
         {
             if (string.IsNullOrEmpty(request?.JobPosting))
             {
-                return BadRequest("Job posting cannot be empty.");
+                return BadRequest(new { error = true, message = "Job posting cannot be empty." });
             }
 
             if (string.IsNullOrEmpty(request?.CandidateId))
             {
-                return BadRequest("Candidate ID cannot be empty.");
+                return BadRequest(new { error = true, message = "Candidate ID cannot be empty." });
             }
 
             try
@@ -257,11 +273,86 @@ namespace RagApi.Api.Controllers
                 // Execute the query
                 var response = await _ragService.QueryAsync(queryBuilder.ToString());
 
-                return Ok(response);
+                return Ok(new { error = false, data = response });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error generating interview questions: {ex.Message}");
+                return StatusCode(500, new { error = true, message = $"Error generating interview questions: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Match a candidate with job postings
+        /// </summary>
+        [HttpPost("candidates/{candidateId}/match-jobs")]
+        public async Task<IActionResult> MatchCandidateWithJobs(string candidateId, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                var matchResults = await _jobMatchingService.MatchCandidateWithJobsAsync(candidateId, limit);
+                return Ok(new { error = false, data = matchResults });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = true, message = "Candidate not found" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = true, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error matching jobs: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Match a job posting with candidates
+        /// </summary>
+        [HttpPost("jobs/{jobPostingId}/match-candidates")]
+        public async Task<IActionResult> MatchJobWithCandidates(string jobPostingId, [FromQuery] int limit = 10)
+        {
+            try
+            {
+                var matchResults = await _jobMatchingService.MatchJobWithCandidatesAsync(jobPostingId, limit);
+                return Ok(new { error = false, data = matchResults });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = true, message = "Job posting not found" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = true, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error matching candidates: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Analyze an application
+        /// </summary>
+        [HttpPost("applications/{applicationId}/analyze")]
+        public async Task<IActionResult> AnalyzeApplication(string applicationId)
+        {
+            try
+            {
+                var analysis = await _jobMatchingService.AnalyzeApplicationAsync(applicationId);
+                return Ok(new { error = false, data = analysis });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = true, message = "Application not found" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = true, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error analyzing application: {ex.Message}" });
             }
         }
     }
