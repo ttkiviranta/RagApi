@@ -36,6 +36,7 @@ namespace RagApi.Services
             _httpClient.DefaultRequestHeaders.Add("api-key", _apiKey);
         }
 
+        // Existing methods - kept for backward compatibility
         public async Task<string> GenerateAnswerAsync(string query, List<SearchResult> searchResults, string userId = null)
         {
             // Get appropriate system prompt based on user
@@ -72,9 +73,9 @@ namespace RagApi.Services
             {
                 messages = new[]
                 {
-                    new { role = "system", content = systemPromptText },
-                    new { role = "user", content = userPrompt }
-                },
+                   new { role = "system", content = systemPromptText },
+                   new { role = "user", content = userPrompt }
+               },
                 max_tokens = 1000,
                 temperature = 0.3f
             };
@@ -122,9 +123,9 @@ namespace RagApi.Services
 
             // Create messages
             var messages = new List<object>
-            {
-                new { role = "system", content = systemPromptText }
-            };
+           {
+               new { role = "system", content = systemPromptText }
+           };
 
             // Add conversation history
             foreach (var message in limitedHistory)
@@ -200,9 +201,9 @@ namespace RagApi.Services
 
             // Create messages list
             var messages = new List<object>
-            {
-                new { role = "system", content = systemPromptText }
-            };
+           {
+               new { role = "system", content = systemPromptText }
+           };
 
             // Add conversation history
             foreach (var message in limitedHistory)
@@ -220,6 +221,40 @@ namespace RagApi.Services
                 messages,
                 max_tokens = 1000,
                 temperature = 0.7f
+            };
+
+            var requestContent = new StringContent(
+                JsonSerializer.Serialize(requestData),
+                Encoding.UTF8,
+                "application/json");
+
+            // Send request to Azure OpenAI API
+            var response = await _httpClient.PostAsync(
+                $"{_endpoint}openai/deployments/{_chatDeployment}/chat/completions?api-version=2023-05-15",
+                requestContent);
+
+            response.EnsureSuccessStatusCode();
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var responseObject = JsonSerializer.Deserialize<ChatCompletionResponse>(responseContent);
+
+            return responseObject.choices[0].message.content;
+        }
+
+        // NEW METHOD IMPLEMENTING UPDATED INTERFACE
+        /// <inheritdoc/>
+        public async Task<string> GetChatCompletionsAsync(string systemPrompt, string userPrompt)
+        {
+            // Create chat completion request
+            var requestData = new
+            {
+                messages = new[]
+                {
+                   new { role = "system", content = systemPrompt },
+                   new { role = "user", content = userPrompt }
+               },
+                max_tokens = 1000,
+                temperature = 0.3f
             };
 
             var requestContent = new StringContent(

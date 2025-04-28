@@ -36,6 +36,7 @@ namespace RagApi.Services
             _httpClient.DefaultRequestHeaders.Add("api-key", _apiKey);
         }
 
+        // Existing method - kept for backward compatibility
         public async Task IndexDocumentChunksAsync(List<DocumentChunk> chunks)
         {
             // Create documents for indexing
@@ -62,6 +63,7 @@ namespace RagApi.Services
             var indexResponse = await _searchClient.IndexDocumentsAsync(batch);
         }
 
+        // Existing method - kept for backward compatibility
         public async Task<List<SearchResult>> SearchAsync(string query, int maxResults = 5)
         {
             // Get embedding for query
@@ -132,6 +134,57 @@ namespace RagApi.Services
             public class EmbeddingData
             {
                 public float[] embedding { get; set; }
+            }
+        }
+
+        // NEW METHODS IMPLEMENTING UPDATED INTERFACE
+
+        /// <inheritdoc/>
+        public async Task IndexDocumentAsync(string documentId, string documentType, string content, string entityId)
+        {
+            // Get embedding using Azure OpenAI API
+            float[] embedding = await GetEmbeddingAsync(content);
+
+            // Create search index document
+            var searchDoc = new SearchDocument();
+            searchDoc["id"] = documentId;
+            searchDoc["type"] = documentType;
+            searchDoc["content"] = content;
+            searchDoc["entityId"] = entityId;
+            searchDoc["createdAt"] = DateTime.UtcNow;
+            searchDoc["contentVector"] = embedding;
+
+            // Send document for indexing
+            var batch = IndexDocumentsBatch.Upload(new[] { searchDoc });
+            await _searchClient.IndexDocumentsAsync(batch);
+        }
+
+        /// <inheritdoc/>
+        public async Task<List<SearchResult>> SearchDocumentsAsync(string query, int maxResults = 5)
+        {
+            // Reuse existing search functionality
+            return await SearchAsync(query, maxResults);
+        }
+
+        /// <inheritdoc/>
+        public async Task DeleteDocumentAsync(string documentId)
+        {
+            // Create a search document with the ID to delete
+            var searchDoc = new SearchDocument();
+            searchDoc["id"] = documentId;
+
+            // Create a batch with a delete action
+            var batch = IndexDocumentsBatch.Delete(new[] { searchDoc });
+
+            try
+            {
+                // Delete document from search index
+                await _searchClient.IndexDocumentsAsync(batch);
+            }
+            catch (Exception ex)
+            {
+                // Log the error
+                throw new Exception($"Failed to delete document: {ex.Message}", ex);
             }
         }
     }
