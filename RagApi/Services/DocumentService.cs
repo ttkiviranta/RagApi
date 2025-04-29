@@ -126,13 +126,29 @@ namespace RagApi.Services
             return document;
         }
 
-        /// <inheritdoc/>
-        public async Task<List<Document>> GetByEntityIdAsync(string entityId)
+        public async Task<IEnumerable<Document>> GetByEntityIdAsync(string entityId)
         {
-            return await _context.Documents
-                .Where(d => d.EntityId == entityId)
-                .ToListAsync();
+            if (string.IsNullOrEmpty(entityId))
+            {
+                // Fetch all documents if entityId is null or empty
+                var allDocuments = await _context.Documents.ToListAsync();
+                if (!allDocuments.Any())
+                {
+                    throw new KeyNotFoundException("No documents found.");
+                }
+                return allDocuments;
+            }
+
+            // Fetch documents for the specific entityId
+            var documents = await _context.Documents.Where(d => d.EntityId == entityId).ToListAsync();
+            if (!documents.Any())
+            {
+                throw new KeyNotFoundException($"No documents found for entity ID: {entityId}");
+            }
+
+            return documents;
         }
+
 
         /// <inheritdoc/>
         public async Task DeleteAsync(string documentId)

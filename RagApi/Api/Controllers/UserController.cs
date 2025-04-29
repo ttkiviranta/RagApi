@@ -12,7 +12,7 @@ using RagApi.Models;
 
 namespace RagApi.Api.Controllers
 {
-    [ApiController]
+  //  [ApiController]
     [Route("api/[controller]")]
     [Authorize] // Lisätty, jotta vain kirjautuneet käyttäjät pääsevät käsiksi API:in
     public class UserController : ControllerBase

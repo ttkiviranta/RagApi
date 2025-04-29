@@ -8,6 +8,7 @@ using Azure.AI.FormRecognizer.DocumentAnalysis;
 using RagApi.Interfaces;
 using RagApi.Models;
 using Azure;
+using System.Text.RegularExpressions;
 
 namespace RagApi.Services
 {
@@ -89,5 +90,38 @@ namespace RagApi.Services
 
             return chunks;
         }
+        public async Task<Candidate> ExtractCandidateInfoFromPdfAsync(string blobName)
+        {
+            // Hae PDF:n tekstilohkot
+            var chunks = await ExtractTextFromPdfAsync(blobName);
+
+            // Yhdistä kaikki tekstilohkot yhdeksi tekstiksi
+            var fullText = string.Join("\n", chunks.Select(c => c.Content));
+
+            // Etsi tiedot tekstistä
+            var firstName = ExtractValue(fullText, @"First Name:\s*(.+)");
+            var lastName = ExtractValue(fullText, @"Last Name:\s*(.+)");
+            var email = ExtractValue(fullText, @"Email:\s*([\w\.-]+@[\w\.-]+\.\w+)");
+            var phoneNumber = ExtractValue(fullText, @"Phone:\s*(\+?\d[\d\s\-]+)");
+
+            // Luo uusi Candidate-objekti
+            return new Candidate
+            {
+                Id = Guid.NewGuid().ToString(),
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                PhoneNumber = phoneNumber,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+        }
+
+        private string ExtractValue(string text, string pattern)
+        {
+            var match = Regex.Match(text, pattern);
+            return match.Success ? match.Groups[1].Value : null;
+        }
+
     }
 }

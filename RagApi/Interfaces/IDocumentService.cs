@@ -28,7 +28,7 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Gets documents by entity ID
         /// </summary>
-        Task<List<Document>> GetByEntityIdAsync(string entityId);
+        Task<IEnumerable<Document>> GetByEntityIdAsync(string entityId);
 
         /// <summary>
         /// Deletes a document

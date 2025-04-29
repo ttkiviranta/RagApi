@@ -9,7 +9,7 @@ using RagApi.Interfaces;
 
 namespace RagApi.Api.Controllers
 {
-    [Authorize]
+   // [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DocumentsController : ControllerBase
@@ -39,6 +39,24 @@ namespace RagApi.Api.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = true, message = $"Error getting document: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Get all documents
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            try
+            {
+                // Jos sinulla on jo metodi, joka voi hakea kaikki dokumentit
+                var documents = await _documentService.GetByEntityIdAsync(null);
+                return Ok(documents);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error getting documents: {ex.Message}" });
             }
         }
 
