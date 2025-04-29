@@ -8,7 +8,7 @@ using RagApi.Models.Dto;
 
 namespace RagApi.Api.Controllers
 {
-    [Authorize]
+   // [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class ApplicationsController : ControllerBase
