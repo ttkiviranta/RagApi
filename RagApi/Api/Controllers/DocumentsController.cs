@@ -52,11 +52,13 @@ namespace RagApi.Api.Controllers
             {
                 // Jos sinulla on jo metodi, joka voi hakea kaikki dokumentit
                 var documents = await _documentService.GetByEntityIdAsync(null);
-                return Ok(documents);
+                return Ok(documents ?? new List<Document>());
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = true, message = $"Error getting documents: {ex.Message}" });
+             
+                // Palautetaan tyhjä taulukko virhetilanteessakin status 200:lla
+                return Ok(new List<Document>());
             }
         }
 
