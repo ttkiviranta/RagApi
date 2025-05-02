@@ -149,12 +149,26 @@ namespace RagApi.Data
                 .Property(jp => jp.SalaryMax)
                 .HasColumnType("decimal(12, 2)"); // 12 digits total, 2 after decimal point
 
-            // Configure Candidate relationships
+            // Configure Candidate relationships - Make UserId nullable and optional
             modelBuilder.Entity<Candidate>()
                 .HasOne(c => c.User)
                 .WithMany()
                 .HasForeignKey(c => c.UserId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false); // Make UserId foreign key relationship optional
+
+            // Configure Candidate nullable fields
+            modelBuilder.Entity<Candidate>()
+                .Property(c => c.UserId)
+                .IsRequired(false); // Make UserId property nullable
+
+            modelBuilder.Entity<Candidate>()
+                .Property(c => c.CoverLetterDocumentId)
+                .IsRequired(false); // Make CoverLetterDocumentId nullable
+
+            modelBuilder.Entity<Candidate>()
+                .Property(c => c.ResumeDocumentId)
+                .IsRequired(false); // Make ResumeDocumentId nullable
 
             // Configure JobPosting relationships
             modelBuilder.Entity<JobPosting>()
