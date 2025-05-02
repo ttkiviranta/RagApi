@@ -24,7 +24,7 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Creates a new candidate
         /// </summary>
-        Task<Candidate> CreateAsync(CandidateCreateDto dto, string userId);
+        Task<Candidate> CreateAsync(CandidateCreateDto dto, string? userId);
 
         /// <summary>
         /// Updates an existing candidate
@@ -39,11 +39,11 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Uploads a resume for a candidate
         /// </summary>
-        Task<string> UploadResumeAsync(string candidateId, IFormFile file, string userId);
+        Task<string> UploadResumeAsync(string candidateId, IFormFile file, string? userId);
 
         /// <summary>
         /// Uploads a cover letter for a candidate
         /// </summary>
-        Task<string> UploadCoverLetterAsync(string candidateId, IFormFile file, string userId);
+        Task<string> UploadCoverLetterAsync(string candidateId, IFormFile file, string? userId);
     }
 }

@@ -39,7 +39,7 @@ namespace RagApi.Services
         }
 
         /// <inheritdoc/>
-        public async Task<Candidate> CreateAsync(CandidateCreateDto dto, string userId)
+        public async Task<Candidate> CreateAsync(CandidateCreateDto dto, string? userId)
         {
             var candidate = new Candidate
             {
@@ -47,19 +47,29 @@ namespace RagApi.Services
                 FirstName = dto.FirstName,
                 LastName = dto.LastName,
                 Email = dto.Email,
-                PhoneNumber = dto.PhoneNumber,
-                LinkedInProfile = dto.LinkedInProfile,
-                CurrentPosition = dto.CurrentPosition,
-                CurrentCompany = dto.CurrentCompany,
-                Skills = dto.Skills,
-                Location = dto.Location,
+                PhoneNumber = dto.PhoneNumber ?? string.Empty,
+                LinkedInProfile = dto.LinkedInProfile ?? string.Empty,
+                CurrentPosition = dto.CurrentPosition ?? string.Empty,
+                CurrentCompany = dto.CurrentCompany ?? string.Empty,
+                Skills = dto.Skills ?? string.Empty,
+                Location = dto.Location ?? string.Empty,
+                ResumeDocumentId = string.Empty,
+                CoverLetterDocumentId = string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 UserId = userId
             };
 
             _context.Candidates.Add(candidate);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new Exception("An error occurred while saving the candidate. See inner exception for details.", ex);
+            }
 
             return candidate;
         }
@@ -81,6 +91,7 @@ namespace RagApi.Services
             candidate.Skills = dto.Skills;
             candidate.Location = dto.Location;
             candidate.UpdatedAt = DateTime.UtcNow;
+            // Huom! UserId jätetään ennalleen
 
             await _context.SaveChangesAsync();
 
@@ -105,7 +116,7 @@ namespace RagApi.Services
             if (candidate == null)
                 throw new KeyNotFoundException("Candidate not found");
 
-            // Upload and process document
+            // userId on vain dokumentin metatietoja varten, ei rajoita käyttöoikeuksia
             var documentId = await _documentService.UploadAndProcessDocumentAsync(
                 file,
                 "Resume",
@@ -128,7 +139,7 @@ namespace RagApi.Services
             if (candidate == null)
                 throw new KeyNotFoundException("Candidate not found");
 
-            // Upload and process document
+            // userId on vain dokumentin metatietoja varten, ei rajoita käyttöoikeuksia
             var documentId = await _documentService.UploadAndProcessDocumentAsync(
                 file,
                 "CoverLetter",

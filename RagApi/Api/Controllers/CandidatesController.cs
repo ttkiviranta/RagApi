@@ -68,6 +68,28 @@ namespace RagApi.Api.Controllers
         {
             try
             {
+                // Tarkista vain pakolliset kentät
+                var validationErrors = new List<string>();
+                if (string.IsNullOrWhiteSpace(dto.FirstName))
+                    validationErrors.Add("First name is required");
+                if (string.IsNullOrWhiteSpace(dto.LastName))
+                    validationErrors.Add("Last name is required");
+                if (string.IsNullOrWhiteSpace(dto.Email))
+                    validationErrors.Add("Email is required");
+
+                if (validationErrors.Any())
+                    return BadRequest(new { error = true, message = "Validation failed", errors = validationErrors });
+
+                // Varmista, että valinnaiset kentät eivät ole null
+                dto.Skills = dto.Skills ?? "";
+                dto.LinkedInProfile = dto.LinkedInProfile ?? "";
+                dto.PhoneNumber = dto.PhoneNumber ?? "";
+                dto.Location = dto.Location ?? "";
+                dto.CurrentPosition = dto.CurrentPosition ?? "";
+                dto.CurrentCompany = dto.CurrentCompany ?? "";
+
+                // Jos käyttäjä on kirjautunut, lisätään tieto siitä kuka loi kandidaatin (audit trail)
+                // mutta toiminta ei vaadi tunnistettua käyttäjää
                 var userId = GetCurrentUserId();
                 var candidate = await _candidateService.CreateAsync(dto, userId);
 
@@ -79,6 +101,7 @@ namespace RagApi.Api.Controllers
                 return StatusCode(500, new { error = true, message = $"Error creating candidate: {ex.Message}" });
             }
         }
+
 
         /// <summary>
         /// Update an existing candidate
@@ -173,9 +196,9 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        private string GetCurrentUserId()
+        private string? GetCurrentUserId()
         {
-            // Get the logged-in user's ID
+            // Get the logged-in user's ID (can be null if user is not authenticated)
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
     }
