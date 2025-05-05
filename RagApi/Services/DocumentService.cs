@@ -37,8 +37,8 @@ namespace RagApi.Services
         public async Task<string> UploadAndProcessDocumentAsync(
             IFormFile file,
             string documentType,
-            string entityId,
-            string userId)
+            string? entityId,
+            string? userId)
         {
             // Validate file type
             if (file.ContentType != "application/pdf")
@@ -50,7 +50,7 @@ namespace RagApi.Services
             // Save file to Azure Blob Storage
             var blobPath = await _blobStorageService.UploadFileAsync(file.OpenReadStream(), fileName, file.ContentType);
 
-            // Create document entity
+            // Create document entity with nullable fields
             var document = new Document
             {
                 Id = Guid.NewGuid().ToString(),
@@ -58,10 +58,10 @@ namespace RagApi.Services
                 BlobStoragePath = blobPath,
                 DocumentType = documentType,
                 ContentType = file.ContentType,
-                EntityId = entityId,
+                EntityId = entityId,     // Can be null
                 Metadata = "{}",
                 UploadedDate = DateTime.UtcNow,
-                UploadedByUserId = userId
+                UploadedByUserId = userId // Can be null
             };
 
             _context.Documents.Add(document);

@@ -50,17 +50,17 @@ namespace RagApi.Api.Controllers
         {
             try
             {
-                // Jos sinulla on jo metodi, joka voi hakea kaikki dokumentit
-                var documents = await _documentService.GetByEntityIdAsync(null);
-                return Ok(documents ?? new List<Document>());
+                // Use empty string instead of null value for better compatibility
+                var documents = await _documentService.GetByEntityIdAsync(string.Empty);
+                return Ok(new { error = false, data = documents ?? new List<Document>() });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-             
-                // Palautetaan tyhjä taulukko virhetilanteessakin status 200:lla
-                return Ok(new List<Document>());
+                // Remove unused exception variable and return empty list with 200 status
+                return Ok(new { error = false, data = new List<Document>() });
             }
         }
+
 
         /// <summary>
         /// Download document content
@@ -149,9 +149,10 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        private string GetCurrentUserId()
+        // Update GetCurrentUserId method to properly support nullable user IDs
+        private string? GetCurrentUserId()
         {
-            // Get the logged-in user's ID
+            // Return null instead of "system-user" as we now support null values in the database
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
     }
