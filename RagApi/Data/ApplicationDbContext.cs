@@ -208,7 +208,17 @@ namespace RagApi.Data
                 .HasOne(d => d.UploadedByUser)
                 .WithMany()
                 .HasForeignKey(d => d.UploadedByUserId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false); // Make the relationship optional
+
+            // Configure Document nullable fields
+            modelBuilder.Entity<Document>()
+                .Property(d => d.UploadedByUserId)
+                .IsRequired(false); // Make UploadedByUserId property nullable
+
+            modelBuilder.Entity<Document>()
+                .Property(d => d.EntityId)
+                .IsRequired(false); // Make EntityId property nullable
 
             // Configure property constraints for recruitment entities
             modelBuilder.Entity<Candidate>()
