@@ -10,15 +10,16 @@ public class Candidate
     public string LinkedInProfile { get; set; }
     public string CurrentPosition { get; set; }
     public string CurrentCompany { get; set; }
-    public string ResumeDocumentId { get; set; }
-    public string CoverLetterDocumentId { get; set; }
+    public string? ResumeDocumentId { get; set; }
+    public string? CoverLetterDocumentId { get; set; }
     public string Skills { get; set; } // JSON-muotoinen taitojen lista
     public string Location { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public string UserId { get; set; } // Viiteavain Users-tauluun
+    public string? UserId { get; set; } // Viiteavain Users-tauluun, nyt nullable
 
     // Navigointiproperties
-    public User User { get; set; }
-    public ICollection<Application> Applications { get; set; }
+    public User? User { get; set; } // Navigointiominaisuus on nyt nullable
+    public ICollection<Application> Applications { get; set; } = new List<Application>();
 }
+
