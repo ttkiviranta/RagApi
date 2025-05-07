@@ -245,6 +245,10 @@ namespace RagApi.Data
                 .Property(jp => jp.Description)
                 .IsRequired();
 
+            modelBuilder.Entity<JobPosting>()
+                .Property(jp => jp.JobPostingDocumentId)
+                .IsRequired(false);
+
             modelBuilder.Entity<Application>()
                 .Property(a => a.Status)
                 .HasMaxLength(50)

@@ -41,6 +41,17 @@ namespace RagApi.Services
         /// <inheritdoc/>
         public async Task<Candidate> CreateAsync(CandidateCreateDto dto, string? userId)
         {
+            // Tarkista onko käyttäjä olemassa, jos userId on annettu
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
+                {
+                    // Käyttäjää ei löydy, asetetaan userId nulliksi
+                    userId = null;
+                }
+            }
+
             var candidate = new Candidate
             {
                 Id = Guid.NewGuid().ToString(),
@@ -53,8 +64,8 @@ namespace RagApi.Services
                 CurrentCompany = dto.CurrentCompany ?? string.Empty,
                 Skills = dto.Skills ?? string.Empty,
                 Location = dto.Location ?? string.Empty,
-                ResumeDocumentId = string.Empty,
-                CoverLetterDocumentId = string.Empty,
+                ResumeDocumentId = null,  // Käytä null arvoa tyhjän merkkijonon sijaan
+                CoverLetterDocumentId = null, // Käytä null arvoa tyhjän merkkijonon sijaan
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 UserId = userId
@@ -73,6 +84,8 @@ namespace RagApi.Services
 
             return candidate;
         }
+
+
 
         /// <inheritdoc/>
         public async Task<Candidate> UpdateAsync(string id, CandidateUpdateDto dto)
