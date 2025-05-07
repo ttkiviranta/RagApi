@@ -18,9 +18,9 @@ public class JobPosting
     public string Status { get; set; } // Active, Closed, Draft
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
-    public string CreatedByUserId { get; set; } // Viiteavain Users-tauluun
+    public string? CreatedByUserId { get; set; } // Viiteavain Users-tauluun
 
     // Navigointiproperties
-    public User CreatedByUser { get; set; }
+    public User? CreatedByUser { get; set; }
     public ICollection<Application> Applications { get; set; }
 }

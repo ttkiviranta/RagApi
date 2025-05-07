@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using RagApi.Models;
@@ -24,7 +25,7 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Creates a new job posting
         /// </summary>
-        Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string userId);
+        Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string? userId); // Make userId nullable
 
         /// <summary>
         /// Updates an existing job posting
@@ -39,7 +40,7 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Uploads a document for a job posting
         /// </summary>
-        Task<string> UploadDocumentAsync(string jobPostingId, IFormFile file, string userId);
+        Task<string> UploadDocumentAsync(string jobPostingId, IFormFile file, string? userId); // Make userId nullable
 
         /// <summary>
         /// Gets active job postings
