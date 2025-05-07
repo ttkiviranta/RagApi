@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -43,6 +44,25 @@ namespace RagApi.Services
             // Validate file type
             if (file.ContentType != "application/pdf")
                 throw new ArgumentException("Only PDF documents are supported.");
+
+            // Validate document type
+            var validTypes = new[] { "Resume", "CoverLetter", "JobPosting", "Other" };
+            if (!validTypes.Contains(documentType, StringComparer.OrdinalIgnoreCase))
+                throw new ArgumentException($"Invalid document type. Allowed types are: {string.Join(", ", validTypes)}");
+
+            // Normalize document type to match backend conventions
+            documentType = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(documentType.ToLower());
+
+            // If userId is provided, verify user exists
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
+                {
+                    // User doesn't exist, set userId to null
+                    userId = null;
+                }
+            }
 
             // Create unique name for the file
             var fileName = $"{Guid.NewGuid()}_{file.FileName}";
@@ -105,6 +125,7 @@ namespace RagApi.Services
 
             return document.Id;
         }
+
 
         /// <inheritdoc/>
         public async Task<byte[]> GetDocumentContentAsync(string documentId)

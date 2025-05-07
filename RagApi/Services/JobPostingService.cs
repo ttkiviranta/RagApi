@@ -54,6 +54,7 @@ namespace RagApi.Services
                 SalaryMin = dto.SalaryMin,
                 SalaryMax = dto.SalaryMax,
                 SalaryCurrency = dto.SalaryCurrency,
+                JobPostingDocumentId = dto.JobPostingDocumentId, // Käytä dokumentin ID:tä, jos annettu
                 PublishedDate = dto.PublishedDate,
                 ExpirationDate = dto.ExpirationDate,
                 Status = dto.Status,
@@ -63,10 +64,30 @@ namespace RagApi.Services
             };
 
             _context.JobPostings.Add(jobPosting);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+
+                // Jos dokumentti on jo ladattu etukäteen, päivitetään sen EntityId viittaamaan tähän työpaikkailmoitukseen
+                if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
+                {
+                    var document = await _context.Documents.FindAsync(dto.JobPostingDocumentId);
+                    if (document != null)
+                    {
+                        document.EntityId = jobPosting.Id;
+                        await _context.SaveChangesAsync();
+                    }
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                throw new Exception("An error occurred while saving the job posting. See inner exception for details.", ex);
+            }
 
             return jobPosting;
         }
+
 
         /// <inheritdoc/>
         public async Task<JobPosting> UpdateAsync(string id, JobPostingUpdateDto dto)
