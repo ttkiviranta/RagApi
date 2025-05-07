@@ -10,7 +10,7 @@ using RagApi.Models.Dto;
 
 namespace RagApi.Api.Controllers
 {
-   // [Authorize]
+    // [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class JobPostingsController : ControllerBase
@@ -68,6 +68,8 @@ namespace RagApi.Api.Controllers
             try
             {
                 var userId = GetCurrentUserId();
+
+                // Pass userId (can be null) to service
                 var jobPosting = await _jobPostingService.CreateAsync(dto, userId);
 
                 return CreatedAtAction(nameof(GetById), new { id = jobPosting.Id },
@@ -132,6 +134,8 @@ namespace RagApi.Api.Controllers
                     return BadRequest(new { error = true, message = "No file was uploaded" });
 
                 var userId = GetCurrentUserId();
+
+                // Pass userId (can be null) to service
                 var documentId = await _jobPostingService.UploadDocumentAsync(id, file, userId);
 
                 return Ok(new { error = false, data = new { documentId } });
@@ -163,9 +167,12 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        private string GetCurrentUserId()
+        /// <summary>
+        /// Gets the current user ID from claims, may return null if user is not authenticated
+        /// </summary>
+        private string? GetCurrentUserId()
         {
-            // Get the logged-in user's ID
+            // Get the logged-in user's ID, can be null if not authenticated
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
     }

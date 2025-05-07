@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -40,7 +39,7 @@ namespace RagApi.Services
         }
 
         /// <inheritdoc/>
-        public async Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string userId)
+        public async Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string? userId)
         {
             var jobPosting = new JobPosting
             {
@@ -54,40 +53,41 @@ namespace RagApi.Services
                 SalaryMin = dto.SalaryMin,
                 SalaryMax = dto.SalaryMax,
                 SalaryCurrency = dto.SalaryCurrency,
-                JobPostingDocumentId = dto.JobPostingDocumentId, // Käytä dokumentin ID:tä, jos annettu
+                JobPostingDocumentId = dto.JobPostingDocumentId,
                 PublishedDate = dto.PublishedDate,
                 ExpirationDate = dto.ExpirationDate,
                 Status = dto.Status,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                CreatedByUserId = userId
+                CreatedByUserId = userId ?? "system" // Use a default value when userId is null
             };
+
+            // If document ID is provided, update the document entity reference
+            if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
+            {
+                var document = await _context.Documents.FindAsync(dto.JobPostingDocumentId);
+                if (document != null)
+                {
+                    document.EntityId = jobPosting.Id;
+                    // Also update document's state
+                    _context.Documents.Update(document);
+                }
+            }
 
             _context.JobPostings.Add(jobPosting);
 
             try
             {
                 await _context.SaveChangesAsync();
-
-                // Jos dokumentti on jo ladattu etukäteen, päivitetään sen EntityId viittaamaan tähän työpaikkailmoitukseen
-                if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
-                {
-                    var document = await _context.Documents.FindAsync(dto.JobPostingDocumentId);
-                    if (document != null)
-                    {
-                        document.EntityId = jobPosting.Id;
-                        await _context.SaveChangesAsync();
-                    }
-                }
             }
             catch (DbUpdateException ex)
             {
-                throw new Exception("An error occurred while saving the job posting. See inner exception for details.", ex);
+                // Log the exception details
+                throw new Exception($"Failed to create job posting: {ex.InnerException?.Message}", ex);
             }
 
             return jobPosting;
         }
-
 
         /// <inheritdoc/>
         public async Task<JobPosting> UpdateAsync(string id, JobPostingUpdateDto dto)
@@ -105,6 +105,11 @@ namespace RagApi.Services
             jobPosting.SalaryMin = dto.SalaryMin;
             jobPosting.SalaryMax = dto.SalaryMax;
             jobPosting.SalaryCurrency = dto.SalaryCurrency;
+            // Only update document ID if provided
+            if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
+            {
+                jobPosting.JobPostingDocumentId = dto.JobPostingDocumentId;
+            }
             jobPosting.PublishedDate = dto.PublishedDate;
             jobPosting.ExpirationDate = dto.ExpirationDate;
             jobPosting.Status = dto.Status;
@@ -124,10 +129,14 @@ namespace RagApi.Services
                 _context.JobPostings.Remove(jobPosting);
                 await _context.SaveChangesAsync();
             }
+            else
+            {
+                throw new KeyNotFoundException($"Job posting with ID {id} not found");
+            }
         }
 
         /// <inheritdoc/>
-        public async Task<string> UploadDocumentAsync(string jobPostingId, IFormFile file, string userId)
+        public async Task<string> UploadDocumentAsync(string jobPostingId, IFormFile file, string? userId)
         {
             var jobPosting = await _context.JobPostings.FindAsync(jobPostingId);
             if (jobPosting == null)
@@ -138,7 +147,7 @@ namespace RagApi.Services
                 file,
                 "JobPosting",
                 jobPostingId,
-                userId);
+                userId); // userId can be null
 
             // Update job posting's document reference
             jobPosting.JobPostingDocumentId = documentId;
