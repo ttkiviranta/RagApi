@@ -148,10 +148,15 @@ namespace RagApi.Data
             modelBuilder.Entity<JobPosting>()
                 .Property(jp => jp.SalaryMax)
                 .HasColumnType("decimal(12, 2)"); // 12 digits total, 2 after decimal point
-                                                  // In ApplicationDbContext.cs, OnModelCreating method
+
+            // Configure JobPosting nullable fields and relationships
             modelBuilder.Entity<JobPosting>()
                 .Property(jp => jp.CreatedByUserId)
                 .IsRequired(false); // Make CreatedByUserId nullable in database
+
+            modelBuilder.Entity<JobPosting>()
+                .Property(jp => jp.JobPostingDocumentId)
+                .IsRequired(false); // Make JobPostingDocumentId nullable
 
             modelBuilder.Entity<JobPosting>()
                 .HasOne(jp => jp.CreatedByUser)
@@ -159,7 +164,6 @@ namespace RagApi.Data
                 .HasForeignKey(jp => jp.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(false); // Make the relationship optional
-
 
             // Configure Candidate relationships - Make UserId nullable and optional
             modelBuilder.Entity<Candidate>()
@@ -249,10 +253,6 @@ namespace RagApi.Data
             modelBuilder.Entity<JobPosting>()
                 .Property(jp => jp.Description)
                 .IsRequired();
-
-            modelBuilder.Entity<JobPosting>()
-                .Property(jp => jp.JobPostingDocumentId)
-                .IsRequired(false);
 
             modelBuilder.Entity<Application>()
                 .Property(a => a.Status)
