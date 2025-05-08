@@ -39,6 +39,8 @@ namespace RagApi.Services
         }
 
         /// <inheritdoc/>
+        // In JobPostingService.cs, modify the CreateAsync method:
+
         public async Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string? userId)
         {
             var jobPosting = new JobPosting
@@ -46,10 +48,10 @@ namespace RagApi.Services
                 Id = Guid.NewGuid().ToString(),
                 Title = dto.Title,
                 Description = dto.Description,
-                Requirements = dto.Requirements,
-                Location = dto.Location,
-                Department = dto.Department,
-                EmploymentType = dto.EmploymentType,
+                Requirements = dto.Requirements ?? string.Empty,
+                Location = dto.Location ?? string.Empty,
+                Department = dto.Department ?? string.Empty,
+                EmploymentType = dto.EmploymentType ?? string.Empty,
                 SalaryMin = dto.SalaryMin,
                 SalaryMax = dto.SalaryMax,
                 SalaryCurrency = dto.SalaryCurrency,
@@ -59,7 +61,7 @@ namespace RagApi.Services
                 Status = dto.Status,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                CreatedByUserId = userId ?? "system" // Use a default value when userId is null
+                CreatedByUserId = userId // Don't use a default value - let it be null if userId is null
             };
 
             // If document ID is provided, update the document entity reference
@@ -88,6 +90,7 @@ namespace RagApi.Services
 
             return jobPosting;
         }
+
 
         /// <inheritdoc/>
         public async Task<JobPosting> UpdateAsync(string id, JobPostingUpdateDto dto)
