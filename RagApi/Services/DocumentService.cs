@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace RagApi.Services
 {
@@ -21,17 +22,20 @@ namespace RagApi.Services
         private readonly IBlobStorageService _blobStorageService;
         private readonly IDocumentIntelligenceService _documentIntelligenceService;
         private readonly IVectorSearchService _searchService;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
 
         public DocumentService(
             ApplicationDbContext context,
             IBlobStorageService blobStorageService,
             IDocumentIntelligenceService documentIntelligenceService,
-            IVectorSearchService searchService)
+            IVectorSearchService searchService,
+            IServiceScopeFactory serviceScopeFactory)
         {
             _context = context;
             _blobStorageService = blobStorageService;
             _documentIntelligenceService = documentIntelligenceService;
             _searchService = searchService;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         /// <inheritdoc/>
@@ -78,54 +82,86 @@ namespace RagApi.Services
                 BlobStoragePath = blobPath,
                 DocumentType = documentType,
                 ContentType = file.ContentType,
-                EntityId = entityId,     // Can be null
+                EntityId = entityId ?? string.Empty,
                 Metadata = "{}",
                 UploadedDate = DateTime.UtcNow,
-                UploadedByUserId = userId // Can be null
+                UploadedByUserId = userId ?? string.Empty
             };
 
             _context.Documents.Add(document);
             await _context.SaveChangesAsync();
 
+            string documentId = document.Id;
+            string savedDocumentType = document.DocumentType;
+            string savedBlobPath = document.BlobStoragePath;
+            string? savedEntityId = entityId;
+
             // Process document asynchronously
             _ = Task.Run(async () => {
-                try
+                // Käytä uutta scopia tausta-ajossa
+                using (var scope = _serviceScopeFactory.CreateScope())
                 {
-                    // Get file from Blob Storage
-                    var fileContent = await _blobStorageService.DownloadFileAsync(blobPath);
-
-                    // Analyze document text using Azure Document Intelligence
-                    var extractedText = await _documentIntelligenceService.ExtractTextFromPdfAsync(fileContent);
-
-                    // Index document for search
-                    await _searchService.IndexDocumentAsync(document.Id, documentType, extractedText.Content, entityId);
-
-                    // Update metadata information
-                    document.Metadata = JsonSerializer.Serialize(new
+                    try
                     {
-                        pageCount = extractedText.Pages.Count,
-                        charCount = extractedText.Content.Length,
-                        indexed = true
-                    });
+                        // Hae uusi DbContext-instanssi scopesta
+                        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                    await _context.SaveChangesAsync();
-                }
-                catch (Exception ex)
-                {
-                    // Error handling - could log to a database or create an error entity
-                    document.Metadata = JsonSerializer.Serialize(new
+                        // Etsi dokumentti uudesta kontekstista
+                        var doc = await dbContext.Documents.FindAsync(documentId);
+                        if (doc == null)
+                        {
+                            // Dokumenttia ei löytynyt, ei voida jatkaa
+                            return;
+                        }
+
+                        // Get file from Blob Storage
+                        var fileContent = await _blobStorageService.DownloadFileAsync(savedBlobPath);
+
+                        // Analyze document text using Azure Document Intelligence
+                        var extractedText = await _documentIntelligenceService.ExtractTextFromPdfAsync(fileContent);
+
+                        // Index document for search
+                        await _searchService.IndexDocumentAsync(documentId, savedDocumentType, extractedText.Content, savedEntityId ?? string.Empty);
+
+                        // Update metadata information
+                        doc.Metadata = JsonSerializer.Serialize(new
+                        {
+                            pageCount = extractedText.Pages.Count,
+                            charCount = extractedText.Content.Length,
+                            indexed = true
+                        });
+
+                        await dbContext.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
                     {
-                        error = ex.Message,
-                        indexed = false
-                    });
+                        // Kokeile hakea dokumentti uudestaan virheen tapahtuessa
+                        try
+                        {
+                            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                            var doc = await dbContext.Documents.FindAsync(documentId);
+                            if (doc != null)
+                            {
+                                // Error handling - could log to a database or create an error entity
+                                doc.Metadata = JsonSerializer.Serialize(new
+                                {
+                                    error = ex.Message,
+                                    indexed = false
+                                });
 
-                    await _context.SaveChangesAsync();
+                                await dbContext.SaveChangesAsync();
+                            }
+                        }
+                        catch
+                        {
+                            // Jätä virhe käsittelemättä, jos dokumentin päivitys ei onnistu
+                        }
+                    }
                 }
             });
 
-            return document.Id;
+            return documentId;
         }
-
 
         /// <inheritdoc/>
         public async Task<byte[]> GetDocumentContentAsync(string documentId)
@@ -147,7 +183,8 @@ namespace RagApi.Services
             return document;
         }
 
-        public async Task<IEnumerable<Document>> GetByEntityIdAsync(string entityId)
+        /// <inheritdoc/>
+        public async Task<IEnumerable<Document>> GetByEntityIdAsync(string? entityId)
         {
             if (string.IsNullOrEmpty(entityId))
             {
@@ -169,7 +206,6 @@ namespace RagApi.Services
 
             return documents;
         }
-
 
         /// <inheritdoc/>
         public async Task DeleteAsync(string documentId)
