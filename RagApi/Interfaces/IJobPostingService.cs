@@ -20,7 +20,7 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Gets a job posting by ID
         /// </summary>
-        Task<JobPosting> GetByIdAsync(string id);
+        Task<JobPosting?> GetByIdAsync(string id);
 
         /// <summary>
         /// Creates a new job posting
@@ -30,7 +30,7 @@ namespace RagApi.Interfaces
         /// <summary>
         /// Updates an existing job posting
         /// </summary>
-        Task<JobPosting> UpdateAsync(string id, JobPostingUpdateDto dto);
+        Task<JobPosting?> UpdateAsync(string id, JobPostingUpdateDto dto);
 
         /// <summary>
         /// Deletes a job posting

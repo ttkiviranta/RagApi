@@ -33,7 +33,7 @@ namespace RagApi.Services
         }
 
         /// <inheritdoc/>
-        public async Task<JobPosting> GetByIdAsync(string id)
+        public async Task<JobPosting?> GetByIdAsync(string id)
         {
             return await _context.JobPostings.FindAsync(id);
         }
@@ -43,6 +43,17 @@ namespace RagApi.Services
 
         public async Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string? userId)
         {
+            // Check if userId exists in the database before using it
+            if (userId != null)
+            {
+                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
+                {
+                    // User doesn't exist in database, set userId to null
+                    userId = null;
+                }
+            }
+
             var jobPosting = new JobPosting
             {
                 Id = Guid.NewGuid().ToString(),
@@ -61,7 +72,7 @@ namespace RagApi.Services
                 Status = dto.Status,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                CreatedByUserId = userId // Don't use a default value - let it be null if userId is null
+                CreatedByUserId = userId  // Will be null if user doesn't exist
             };
 
             // If document ID is provided, update the document entity reference
@@ -92,8 +103,9 @@ namespace RagApi.Services
         }
 
 
+
         /// <inheritdoc/>
-        public async Task<JobPosting> UpdateAsync(string id, JobPostingUpdateDto dto)
+        public async Task<JobPosting?> UpdateAsync(string id, JobPostingUpdateDto dto)
         {
             var jobPosting = await _context.JobPostings.FindAsync(id);
             if (jobPosting == null)
@@ -145,12 +157,23 @@ namespace RagApi.Services
             if (jobPosting == null)
                 throw new KeyNotFoundException("Job posting not found");
 
+            // Check if userId exists in the database before using it
+            if (userId != null)
+            {
+                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
+                {
+                    // User doesn't exist in database, set userId to null
+                    userId = null;
+                }
+            }
+
             // Upload and process document
             var documentId = await _documentService.UploadAndProcessDocumentAsync(
                 file,
                 "JobPosting",
                 jobPostingId,
-                userId); // userId can be null
+                userId); // userId will be null if user doesn't exist
 
             // Update job posting's document reference
             jobPosting.JobPostingDocumentId = documentId;
@@ -160,6 +183,7 @@ namespace RagApi.Services
 
             return documentId;
         }
+
 
         /// <inheritdoc/>
         public async Task<IEnumerable<JobPosting>> GetActiveAsync()
