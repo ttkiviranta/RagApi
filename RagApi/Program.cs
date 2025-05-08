@@ -18,6 +18,9 @@ using Azure.Search.Documents.Indexes;
 using Azure.Search.Documents.Indexes.Models;
 using Azure.Search.Documents.Models;
 using RagApi.Helpers;
+using Microsoft.Extensions.Caching.Memory;
+using RagApi.Api.Middleware;
+using RagApi.Api.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +38,9 @@ builder.Services.Configure<TelemetryConfiguration>((config) => {
         dependencyCollector.EnableSqlCommandTextInstrumentation = true;
     }
 });
+
+// Add in-memory cache for user data
+builder.Services.AddMemoryCache();
 
 // Add Entity Framework Core DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -210,8 +216,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
-// The rest of your application startup code...
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
@@ -313,6 +317,10 @@ app.UseHttpsRedirection();
 // Add CORS middleware
 app.UseCors("CorsPolicy");
 app.UseAuthorization();
+
+// Add middleware to automatically create/update users in database
+app.UseUserCreation();
+
 app.MapControllers();
 
 app.Run();
