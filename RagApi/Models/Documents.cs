@@ -10,8 +10,8 @@ public class Document
     public string EntityId { get; set; } // Viittaus johonkin entiteettiin (kandidaatti, työpaikka, jne.)
     public string Metadata { get; set; } // JSON-muotoista metadataa
     public DateTime UploadedDate { get; set; }
-    public string UploadedByUserId { get; set; }
+    public string? UploadedByUserId { get; set; }
 
     // Navigointiproperties
-    public User UploadedByUser { get; set; }
+    public User? UploadedByUser { get; set; }
 }

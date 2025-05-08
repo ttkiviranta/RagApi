@@ -5,20 +5,25 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RagApi.Data;
 using RagApi.Interfaces;
+using RagApi.Models;
 
 namespace RagApi.Api.Controllers
 {
-   // [Authorize]
+    [Authorize] 
     [ApiController]
     [Route("api/[controller]")]
     public class DocumentsController : ControllerBase
     {
         private readonly IDocumentService _documentService;
+        private readonly ApplicationDbContext _dbContext;
 
-        public DocumentsController(IDocumentService documentService)
+        public DocumentsController(IDocumentService documentService, ApplicationDbContext dbContext)
         {
             _documentService = documentService;
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -113,7 +118,20 @@ namespace RagApi.Api.Controllers
                 if (file == null || file.Length == 0)
                     return BadRequest(new { error = true, message = "No file was uploaded" });
 
+                // Hae käyttäjä-ID
                 var userId = GetCurrentUserId();
+
+                // KORJAUS: Tarkista että käyttäjä löytyy tietokannasta
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    var userExists = await _dbContext.Users.AnyAsync(u => u.Id == userId);
+                    if (!userExists)
+                    {
+                        // Käyttäjää ei löydy tietokannasta, aseta userId nulliksi
+                        userId = null;
+                    }
+                }
+
                 var documentId = await _documentService.UploadAndProcessDocumentAsync(file, documentType, entityId, userId);
 
                 return Ok(new { error = false, data = new { documentId } });
