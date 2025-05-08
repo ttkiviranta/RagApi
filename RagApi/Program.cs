@@ -14,7 +14,10 @@ using Azure;
 using RagApi.Auth;
 using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.ApplicationInsights.DependencyCollector;
-
+using Azure.Search.Documents.Indexes;
+using Azure.Search.Documents.Indexes.Models;
+using Azure.Search.Documents.Models;
+using RagApi.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,18 +43,23 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Azure Blob Storage for storing PDF files
 builder.Services.AddSingleton(x => new BlobServiceClient(
-    builder.Configuration.GetConnectionString("AzureBlobStorage")));
+    builder.Configuration.GetConnectionString("AzureBlobStorage") ?? throw new InvalidOperationException("AzureBlobStorage connection string not found")));
 
 // Azure Document Analysis Client for reading PDF files
 builder.Services.AddSingleton(x => new DocumentAnalysisClient(
-    new Uri(builder.Configuration["Azure:FormRecognizer:Endpoint"]),
-    new AzureKeyCredential(builder.Configuration["Azure:FormRecognizer:Key"])));
+    new Uri(builder.Configuration["Azure:FormRecognizer:Endpoint"] ?? throw new InvalidOperationException("FormRecognizer endpoint not found")),
+    new AzureKeyCredential(builder.Configuration["Azure:FormRecognizer:Key"] ?? throw new InvalidOperationException("FormRecognizer key not found"))));
 
 // Azure Cognitive Search as vector database
 builder.Services.AddSingleton(x => new SearchClient(
-    new Uri(builder.Configuration["Azure:Search:Endpoint"]),
-    builder.Configuration["Azure:Search:IndexName"],
-    new AzureKeyCredential(builder.Configuration["Azure:Search:Key"])));
+    new Uri(builder.Configuration["Azure:Search:Endpoint"] ?? throw new InvalidOperationException("Search endpoint not found")),
+    builder.Configuration["Azure:Search:IndexName"] ?? throw new InvalidOperationException("Search index name not found"),
+    new AzureKeyCredential(builder.Configuration["Azure:Search:Key"] ?? throw new InvalidOperationException("Search key not found"))));
+
+// Add Search Index Client for creating indices
+builder.Services.AddSingleton(x => new SearchIndexClient(
+    new Uri(builder.Configuration["Azure:Search:Endpoint"] ?? throw new InvalidOperationException("Search endpoint not found")),
+    new AzureKeyCredential(builder.Configuration["Azure:Search:Key"] ?? throw new InvalidOperationException("Search key not found"))));
 
 // HTTP Client for OpenAI API calls
 builder.Services.AddHttpClient();
@@ -89,7 +97,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policy =>
     {
-        policy.WithOrigins(builder.Configuration.GetSection("Security:AllowedOrigins").Get<string[]>())
+        policy.WithOrigins(builder.Configuration.GetSection("Security:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:3000" })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -111,6 +119,99 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+// Create search index if it doesn't exist
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        // Get search index client
+        var searchIndexClient = services.GetRequiredService<SearchIndexClient>();
+        var indexName = builder.Configuration["Azure:Search:IndexName"] ?? "pdf-documents";
+
+        // Check if index exists
+        try
+        {
+            var indexExists = await searchIndexClient.GetIndexAsync(indexName);
+            Console.WriteLine($"Search index '{indexName}' exists");
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            // Index doesn't exist, create it
+            Console.WriteLine($"Creating search index '{indexName}'...");
+
+            // Create the index with proper field definitions
+            var searchIndex = new SearchIndex(indexName)
+            {
+                Fields = new List<SearchField>()
+                {
+                    // Key field
+                    new SearchField("id", SearchFieldDataType.String)
+                    {
+                        IsKey = true,
+                        IsFilterable = true
+                    },
+                    
+                    // Type field for document type
+                    new SearchField("type", SearchFieldDataType.String)
+                    {
+                        IsFilterable = true
+                    },
+                    
+                    // Content field for full text search
+                    new SearchField("content", SearchFieldDataType.String)
+                    {
+                        IsSearchable = true
+                    },
+                    
+                    // EntityId field for linking to database entities
+                    new SearchField("entityId", SearchFieldDataType.String)
+                    {
+                        IsFilterable = true
+                    },
+                    
+                    // CreatedAt field for sorting by date
+                    new SearchField("createdAt", SearchFieldDataType.DateTimeOffset)
+                    {
+                        IsFilterable = true,
+                        IsSortable = true
+                    },
+                    
+                    // Vector field for embeddings
+                    new SearchField("contentVector", SearchFieldDataType.Collection(SearchFieldDataType.Single))
+                    {
+                        VectorSearchDimensions = 1536
+                    }
+                }
+            };
+
+            // Configure vector search capabilities
+            searchIndex.VectorSearch = new VectorSearch
+            {
+                Algorithms =
+                {
+                    new HnswAlgorithmConfiguration("default")
+                },
+                Profiles =
+                {
+                    new VectorSearchProfile("default", "default")
+                }
+            };
+
+            // Create the index
+            await searchIndexClient.CreateIndexAsync(searchIndex);
+
+            Console.WriteLine($"Search index '{indexName}' created successfully");
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"An error occurred while creating search index: {ex.Message}");
+    }
+}
+
+
+// The rest of your application startup code...
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
