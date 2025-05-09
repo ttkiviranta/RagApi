@@ -77,7 +77,8 @@ namespace RagApi.Services
                     Queries = { new VectorizedQuery(queryEmbedding) { KNearestNeighborsCount = maxResults, Fields = { "contentVector" } } }
                 },
                 Size = maxResults,
-                Select = { "id", "content", "source", "pageNumber" }
+                // Valitse vain yhteiset kentät kaikista dokumenteista
+                Select = { "id", "content" }  // Poistettu "source" ja "pageNumber"
             };
 
             // Execute search
@@ -88,17 +89,33 @@ namespace RagApi.Services
 
             await foreach (var result in searchResponse.Value.GetResultsAsync())
             {
-                results.Add(new SearchResult
+                var searchResult = new SearchResult
                 {
                     Id = result.Document["id"].ToString(),
                     Content = result.Document["content"].ToString(),
-                    Source = result.Document["source"].ToString(),
                     Score = result.Score ?? 0
-                });
+                };
+
+                // Tarkista, onko dokumentissa source-kenttä
+                if (result.Document.ContainsKey("source"))
+                {
+                    searchResult.Source = result.Document["source"].ToString();
+                }
+                else if (result.Document.ContainsKey("type")) // Käytä type-kenttää vaihtoehtona
+                {
+                    searchResult.Source = result.Document["type"].ToString();
+                }
+                else
+                {
+                    searchResult.Source = "Tuntematon lähde";
+                }
+
+                results.Add(searchResult);
             }
 
             return results;
         }
+
 
         private async Task<float[]> GetEmbeddingAsync(string text)
         {
