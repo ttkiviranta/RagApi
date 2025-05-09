@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models;
 using RagApi.Models.Dto;
@@ -15,53 +12,48 @@ namespace RagApi.Services
     /// </summary>
     public class ApplicationService : IApplicationService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IJobMatchingService _jobMatchingService;
 
         public ApplicationService(
-            ApplicationDbContext context,
+            IUnitOfWork unitOfWork,
             IJobMatchingService jobMatchingService)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
             _jobMatchingService = jobMatchingService;
         }
 
         /// <inheritdoc/>
         public async Task<IEnumerable<Application>> GetAllAsync()
         {
-            return await _context.Applications
-                .Include(a => a.Candidate)
-                .Include(a => a.JobPosting)
-                .ToListAsync();
+            return await _unitOfWork.Applications.GetAllAsync();
+            // Huomaa: Mukaan pitäisi liittää navigationPropertit LoadWith-käskyillä
+            // tai tehdä erillinen metodi repositoryyn
         }
 
         /// <inheritdoc/>
         public async Task<Application> GetByIdAsync(string id)
         {
-            return await _context.Applications
-                .Include(a => a.Candidate)
-                .Include(a => a.JobPosting)
-                .FirstOrDefaultAsync(a => a.Id == id);
+            return await _unitOfWork.Applications.GetByIdAsync(id);
         }
 
         /// <inheritdoc/>
         public async Task<Application> CreateAsync(ApplicationCreateDto dto)
         {
             // Verify candidate and job posting exist
-            var candidate = await _context.Candidates.FindAsync(dto.CandidateId);
-            var jobPosting = await _context.JobPostings.FindAsync(dto.JobPostingId);
-
+            var candidate = await _unitOfWork.Candidates.GetByIdAsync(dto.CandidateId);
             if (candidate == null)
                 throw new KeyNotFoundException("Candidate not found");
 
+            var jobPosting = await _unitOfWork.JobPostings.GetByIdAsync(dto.JobPostingId);
             if (jobPosting == null)
                 throw new KeyNotFoundException("Job posting not found");
 
             // Check if candidate has already applied to this job
-            var existingApplication = await _context.Applications
-                .FirstOrDefaultAsync(a => a.CandidateId == dto.CandidateId && a.JobPostingId == dto.JobPostingId);
+            var existingApplications = await _unitOfWork.Applications.FindAsync(a =>
+                a.CandidateId == dto.CandidateId && a.JobPostingId == dto.JobPostingId);
 
-            if (existingApplication != null)
+            if (existingApplications.Any())
                 throw new InvalidOperationException("Candidate has already applied to this job posting");
 
             var application = new Application
@@ -76,8 +68,8 @@ namespace RagApi.Services
                 UpdatedAt = DateTime.UtcNow
             };
 
-            _context.Applications.Add(application);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Applications.AddAsync(application);
+            await _unitOfWork.CommitAsync();
 
             // Generate match score asynchronously
             _ = Task.Run(async () => {
@@ -97,7 +89,7 @@ namespace RagApi.Services
         /// <inheritdoc/>
         public async Task<Application> UpdateStatusAsync(string id, ApplicationStatusUpdateDto dto)
         {
-            var application = await _context.Applications.FindAsync(id);
+            var application = await _unitOfWork.Applications.GetByIdAsync(id);
             if (application == null)
                 return null;
 
@@ -105,7 +97,8 @@ namespace RagApi.Services
             application.Notes = dto.Notes;
             application.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Applications.UpdateAsync(application);
+            await _unitOfWork.CommitAsync();
 
             return application;
         }
@@ -113,47 +106,36 @@ namespace RagApi.Services
         /// <inheritdoc/>
         public async Task<IEnumerable<Application>> GetByJobPostingAsync(string jobPostingId)
         {
-            return await _context.Applications
-                .Include(a => a.Candidate)
-                .Where(a => a.JobPostingId == jobPostingId)
-                .ToListAsync();
+            return await _unitOfWork.Applications.GetByJobPostingIdAsync(jobPostingId);
         }
 
         /// <inheritdoc/>
         public async Task<IEnumerable<Application>> GetByCandidateAsync(string candidateId)
         {
-            return await _context.Applications
-                .Include(a => a.JobPosting)
-                .Where(a => a.CandidateId == candidateId)
-                .ToListAsync();
+            return await _unitOfWork.Applications.GetByCandidateIdAsync(candidateId);
         }
 
         /// <inheritdoc/>
         public async Task<JobMatchResult> GenerateMatchScoreAsync(string applicationId)
         {
-            var application = await _context.Applications
-                .Include(a => a.Candidate)
-                .Include(a => a.JobPosting)
-                .FirstOrDefaultAsync(a => a.Id == applicationId);
-
+            var application = await _unitOfWork.Applications.GetByIdAsync(applicationId);
             if (application == null)
                 throw new KeyNotFoundException("Application not found");
 
-            // Get candidate resume and job posting documents
-            var candidateDocuments = await _context.Documents
-                .Where(d => d.EntityId == application.CandidateId && d.DocumentType == "Resume")
-                .ToListAsync();
+            // Get candidate resume documents
+            var candidateDocuments = await _unitOfWork.Documents.FindAsync(d =>
+                d.EntityId == application.CandidateId && d.DocumentType == "Resume");
 
-            var jobDocuments = await _context.Documents
-                .Where(d => d.EntityId == application.JobPostingId && d.DocumentType == "JobPosting")
-                .ToListAsync();
+            // Get job posting documents
+            var jobDocuments = await _unitOfWork.Documents.FindAsync(d =>
+                d.EntityId == application.JobPostingId && d.DocumentType == "JobPosting");
 
             if (!candidateDocuments.Any() || !jobDocuments.Any())
                 throw new InvalidOperationException("Required documents not found");
 
             // Use job matching service to analyze match
-            var resumeDocument = candidateDocuments.FirstOrDefault();
-            var jobPostingDocument = jobDocuments.FirstOrDefault();
+            var resumeDocument = candidateDocuments.First();
+            var jobPostingDocument = jobDocuments.First();
 
             var matchResult = await _jobMatchingService.AnalyzeJobMatchAsync(
                 resumeDocument.BlobStoragePath,
@@ -164,7 +146,8 @@ namespace RagApi.Services
             application.MatchAnalysis = matchResult.Analysis;
             application.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Applications.UpdateAsync(application);
+            await _unitOfWork.CommitAsync();
 
             return matchResult;
         }

@@ -12,6 +12,9 @@ Key features:
 - Conversational memory
 - Customizable system prompts
 - HR-focused job matching capabilities
+- Interview management
+- Application tracking
+- Candidate management
 
 ## Architecture
 
@@ -20,132 +23,119 @@ RagAPI integrates several Azure services:
 - **Azure Document Intelligence**: Extract text from PDF documents
 - **Azure OpenAI**: Generate contextual responses
 - **Azure Blob Storage**: Store original documents
-- **Azure SQL Database**: Store conversations and system settings
+- **Azure SQL Database**: Store conversations, applications, interviews, and system settings
 
 ## API Endpoints
 
 ### Document Management
 
-POST /api/rag/documents
+POST /api/documents
+- Upload and process a document (currently PDF only)
+- Form Data Parameters:
+  - `file`: The PDF file to upload
+  - `DocumentType`: Type of document (Resume, CoverLetter, JobPosting, etc.)
+  - `EntityId`: (Optional) ID to associate with a specific entity
+  - `Metadata`: (Optional) Additional metadata about the document
 
-Upload and process a document (currently PDF only).
+GET /api/documents/{id}
+- Get document details by ID
 
-**Form Data Parameters**:
-- `file`: The PDF file to upload
-- `DocumentType`: Type of document (Resume, CoverLetter, JobPosting, etc.)
-- `EntityId`: (Optional) ID to associate with a specific entity
-- `Metadata`: (Optional) Additional metadata about the document
-
-### Query Endpoints
+### RAG Query Endpoints
 
 POST /api/rag/query
-
-Make a single query without conversation context.
-
-**Request Body**:
-
-{ "query": "Your question about the documents", "filters": { "optional": "filters" }, "maxResults": 5 }
+- Make a single query without conversation context
+- Request Body: `{ "query": "Your question", "filters": { "optional": "filters" }, "maxResults": 5 }`
 
 ### Conversation Management
 
 POST /api/rag/conversations
-
-Create a new conversation.
-
-**Request Body**:
-{ "title": "Conversation Title" }
+- Create a new conversation
+- Request Body: `{ "title": "Conversation Title" }`
 
 GET /api/rag/conversations
-
-Get all conversations for the current user.
+- Get all conversations for the current user
 
 GET /api/rag/conversations/{conversationId}
-
-Get a specific conversation by ID.
+- Get a specific conversation by ID
 
 POST /api/rag/conversations/{conversationId}/query
+- Make a query in a conversation context (with history)
+- Request Body: `{ "query": "Your follow-up question" }`
 
-Make a query in a conversation context (with history).
-
-**Request Body**:
-{ "query": "Your follow-up question" }
-
-### Job Matching
+### Job Matching and Applications
 
 POST /api/rag/job-matching
+- Match job postings with candidate resumes
+- Request Body: `{ "jobPosting": "Full job description text", "candidateIds": ["id1", "id2"], "maxCandidates": 10 }`
 
-Match job postings with candidate resumes.
+POST /api/job-matching/candidates/{candidateId}/match-jobs
+- Match a candidate with available job postings
+- Query Parameter: `limit` (default: 10)
 
-**Request Body**:
-{ "jobPosting": "Full job description text", "candidateIds": ["id1", "id2"], "maxCandidates": 10 }
+### Applications Management
 
-POST /api/job-matching/job-postings
+GET /api/applications
+- Get all applications
 
-Upload a job posting (PDF).
+GET /api/applications/{id}
+- Get application details by ID
 
-POST /api/job-matching/candidates/{candidateId}/resume
+POST /api/applications
+- Create a new application
 
-Upload a candidate's resume (PDF).
+PUT /api/applications/{id}/status
+- Update application status
 
-POST /api/job-matching/candidates/{candidateId}/cover-letter
+### Interview Management
 
-Upload a candidate's cover letter (PDF).
+GET /api/interviews
+- Get all interviews
 
-POST /api/job-matching/match
+GET /api/interviews/{id}
+- Get interview details by ID
 
-Match a job with candidate documents.
+POST /api/interviews
+- Create a new interview
 
-POST /api/job-matching/interview-questions
+PUT /api/interviews/{id}
+- Update interview details
 
-Generate interview questions based on job and candidate match.
+GET /api/interviews/application/{applicationId}
+- Get all interviews for an application
+
+POST /api/interviews/{id}/questions
+- Generate interview questions for an interview
 
 ### System Prompts
 
 GET /api/systemprompt
-
-Get all system prompts.
+- Get all system prompts
 
 GET /api/systemprompt/{id}
-
-Get a specific system prompt.
+- Get a specific system prompt
 
 GET /api/systemprompt/default
-
-Get the default system prompt.
+- Get the default system prompt
 
 POST /api/systemprompt
-
-Create a new system prompt.
+- Create a new system prompt
 
 PUT /api/systemprompt/{id}
-
-Update an existing system prompt.
+- Update an existing system prompt
 
 DELETE /api/systemprompt/{id}
-
-Delete a system prompt.
+- Delete a system prompt
 
 ### User Management
 
 GET /api/user
-
-Get all users.
+- Get all users
 
 GET /api/user/{id}
-
-Get a specific user.
+- Get a specific user
 
 POST /api/user
-
-Create a new user.
-
-PUT /api/user/{id}
-
-Update an existing user.
-
-DELETE /api/user/{id}
-
-Delete a user.
+- Create a new user
 
 ## Authentication
 
@@ -160,10 +150,22 @@ RagAPI uses Azure AD for authentication. To authenticate:
 All responses follow a standardized format:
 
 **Success responses**:
-{ "error": false, "data": { /* response data */ } }
-**Error responses**:
-{ "error": true, "message": "Error description" }
+```json
+{
+    "error": false,
+    "data": { /* response data */ }
+}
+```
 
+**Error responses**:
+```json
+{
+    "error": true,
+    "message": "Error description",
+    "timestamp": "2024-03-21T12:00:00Z",
+    "path": "/api/endpoint"
+}
+```
 
 ## Setup and Configuration
 
@@ -178,7 +180,8 @@ All responses follow a standardized format:
 
 The application uses the following configuration values in `appsettings.json`:
 
- d{
+```json
+{
   "ConnectionStrings": {
     "DefaultConnection": "Your SQL connection string",
     "AzureBlobStorage": "Your Azure Blob Storage connection string"
@@ -201,41 +204,24 @@ The application uses the following configuration values in `appsettings.json`:
     }
   }
 }
+```
 
-### Deployment
-
-The application can be deployed to Azure App Service:
-
-1. Set up required Azure resources
-2. Configure connection strings and settings
-3. Deploy using Visual Studio or Azure DevOps pipelines
-
-## Development
-
-### Running locally
+### Development
 
 1. Clone the repository
-2. Update `appsettings.json` with your service credentials
-3. Run database migrations: `dotnet ef database update`
-4. Start the application: `dotnet run`
+2. Copy `appsettings.json.template` to `appsettings.json`
+3. Update `appsettings.json` with your service credentials
+4. Run database migrations: `dotnet ef database update`
+5. Start the application: `dotnet run`
 
 ### Project Structure
 
-- **Controllers**: API endpoints
-- **Services**: Core business logic
-- **Interfaces**: Service abstractions
-- **Models**: Data models
-- **Data**: Database context and configuration
-
-## Application Configuration
-
-This project uses the `appsettings.json.template` file to share the configuration structure without sensitive information.
-
-1. Copy `appsettings.json.template` to a file named `appsettings.json`
-2. Fill in the missing values with the correct values, which you can obtain from the project administrator
-3. Never commit the `appsettings.json` file to the Git repository!
-
-In production, the application uses Azure App Service environment variables.
+- **Api/**: API controllers and models
+- **Services/**: Core business logic
+- **Interfaces/**: Service abstractions
+- **Models/**: Data models and DTOs
+- **Data/**: Database context and configuration
+- **Helpers/**: Utility classes and helpers
 
 ## License
 

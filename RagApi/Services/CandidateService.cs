@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models;
 using RagApi.Models.Dto;
@@ -15,43 +13,33 @@ namespace RagApi.Services
     /// </summary>
     public class CandidateService : ICandidateService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDocumentService _documentService;
 
         public CandidateService(
-            ApplicationDbContext context,
+            IUnitOfWork unitOfWork,
             IDocumentService documentService)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
             _documentService = documentService;
         }
 
         /// <inheritdoc/>
         public async Task<IEnumerable<Candidate>> GetAllAsync()
         {
-            return await _context.Candidates.ToListAsync();
+            return await _unitOfWork.Candidates.GetAllAsync();
         }
 
         /// <inheritdoc/>
         public async Task<Candidate> GetByIdAsync(string id)
         {
-            return await _context.Candidates.FindAsync(id);
+            return await _unitOfWork.Candidates.GetByIdAsync(id);
         }
 
         /// <inheritdoc/>
         public async Task<Candidate> CreateAsync(CandidateCreateDto dto, string? userId)
         {
-            // Tarkista onko käyttäjä olemassa, jos userId on annettu
-            if (!string.IsNullOrEmpty(userId))
-            {
-                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
-                if (!userExists)
-                {
-                    // Käyttäjää ei löydy, asetetaan userId nulliksi
-                    userId = null;
-                }
-            }
-
+            // userId validointi voidaan tehdä repositoryssa tai servicessä
             var candidate = new Candidate
             {
                 Id = Guid.NewGuid().ToString(),
@@ -64,33 +52,29 @@ namespace RagApi.Services
                 CurrentCompany = dto.CurrentCompany ?? string.Empty,
                 Skills = dto.Skills ?? string.Empty,
                 Location = dto.Location ?? string.Empty,
-                ResumeDocumentId = null,  // Käytä null arvoa tyhjän merkkijonon sijaan
-                CoverLetterDocumentId = null, // Käytä null arvoa tyhjän merkkijonon sijaan
+                ResumeDocumentId = null,
+                CoverLetterDocumentId = null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
                 UserId = userId
             };
 
-            _context.Candidates.Add(candidate);
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _unitOfWork.Candidates.AddAsync(candidate);
+                await _unitOfWork.CommitAsync();
+                return candidate;
             }
-            catch (DbUpdateException ex)
+            catch (Exception ex)
             {
                 throw new Exception("An error occurred while saving the candidate. See inner exception for details.", ex);
             }
-
-            return candidate;
         }
-
-
 
         /// <inheritdoc/>
         public async Task<Candidate> UpdateAsync(string id, CandidateUpdateDto dto)
         {
-            var candidate = await _context.Candidates.FindAsync(id);
+            var candidate = await _unitOfWork.Candidates.GetByIdAsync(id);
             if (candidate == null)
                 return null;
 
@@ -104,9 +88,9 @@ namespace RagApi.Services
             candidate.Skills = dto.Skills;
             candidate.Location = dto.Location;
             candidate.UpdatedAt = DateTime.UtcNow;
-            // Huom! UserId jätetään ennalleen
 
-            await _context.SaveChangesAsync();
+            await _unitOfWork.Candidates.UpdateAsync(candidate);
+            await _unitOfWork.CommitAsync();
 
             return candidate;
         }
@@ -114,57 +98,49 @@ namespace RagApi.Services
         /// <inheritdoc/>
         public async Task DeleteAsync(string id)
         {
-            var candidate = await _context.Candidates.FindAsync(id);
+            var candidate = await _unitOfWork.Candidates.GetByIdAsync(id);
             if (candidate != null)
             {
-                _context.Candidates.Remove(candidate);
-                await _context.SaveChangesAsync();
+                await _unitOfWork.Candidates.DeleteAsync(candidate);
+                await _unitOfWork.CommitAsync();
             }
         }
 
         /// <inheritdoc/>
         public async Task<string> UploadResumeAsync(string candidateId, IFormFile file, string userId)
         {
-            var candidate = await _context.Candidates.FindAsync(candidateId);
+            var candidate = await _unitOfWork.Candidates.GetByIdAsync(candidateId);
             if (candidate == null)
                 throw new KeyNotFoundException("Candidate not found");
 
-            // userId on vain dokumentin metatietoja varten, ei rajoita käyttöoikeuksia
+            // Dokumentin käsittely käyttää dokumenttipalvelua
             var documentId = await _documentService.UploadAndProcessDocumentAsync(
                 file,
                 "Resume",
                 candidateId,
                 userId);
 
-            // Update candidate's resume reference
-            candidate.ResumeDocumentId = documentId;
-            candidate.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
+            // Repository-tason metodi päivittää viitteen
+            await _unitOfWork.Candidates.UpdateResumeDocumentAsync(candidateId, documentId);
             return documentId;
         }
 
         /// <inheritdoc/>
         public async Task<string> UploadCoverLetterAsync(string candidateId, IFormFile file, string userId)
         {
-            var candidate = await _context.Candidates.FindAsync(candidateId);
+            var candidate = await _unitOfWork.Candidates.GetByIdAsync(candidateId);
             if (candidate == null)
                 throw new KeyNotFoundException("Candidate not found");
 
-            // userId on vain dokumentin metatietoja varten, ei rajoita käyttöoikeuksia
+            // Dokumentin käsittely käyttää dokumenttipalvelua
             var documentId = await _documentService.UploadAndProcessDocumentAsync(
                 file,
                 "CoverLetter",
                 candidateId,
                 userId);
 
-            // Update candidate's cover letter reference
-            candidate.CoverLetterDocumentId = documentId;
-            candidate.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
+            // Repository-tason metodi päivittää viitteen
+            await _unitOfWork.Candidates.UpdateCoverLetterDocumentAsync(candidateId, documentId);
             return documentId;
         }
     }
