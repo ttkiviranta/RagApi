@@ -40,10 +40,10 @@ namespace RagApi.Services
 
         /// <inheritdoc/>
         public async Task<string> UploadAndProcessDocumentAsync(
-            IFormFile file,
-            string documentType,
-            string? entityId,
-            string? userId)
+     IFormFile file,
+     string documentType,
+     string? entityId,
+     string? userId)
         {
             // Validate file type
             if (file.ContentType != "application/pdf")
@@ -85,7 +85,7 @@ namespace RagApi.Services
                 EntityId = entityId ?? string.Empty,
                 Metadata = "{}",
                 UploadedDate = DateTime.UtcNow,
-                UploadedByUserId = userId ?? string.Empty
+                UploadedByUserId = userId  // Tämä rivi on korjattu - ei enää ?? string.Empty
             };
 
             _context.Documents.Add(document);
@@ -97,7 +97,8 @@ namespace RagApi.Services
             string? savedEntityId = entityId;
 
             // Process document asynchronously
-            _ = Task.Run(async () => {
+            _ = Task.Run(async () =>
+            {
                 // Käytä uutta scopia tausta-ajossa
                 using (var scope = _serviceScopeFactory.CreateScope())
                 {
@@ -162,6 +163,7 @@ namespace RagApi.Services
 
             return documentId;
         }
+
 
         /// <inheritdoc/>
         public async Task<byte[]> GetDocumentContentAsync(string documentId)
