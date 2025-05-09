@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models;
 using RagApi.Models.Dto;
@@ -15,45 +13,32 @@ namespace RagApi.Services
     /// </summary>
     public class JobPostingService : IJobPostingService
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IDocumentService _documentService;
 
         public JobPostingService(
-            ApplicationDbContext context,
+            IUnitOfWork unitOfWork,
             IDocumentService documentService)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
             _documentService = documentService;
         }
 
         /// <inheritdoc/>
         public async Task<IEnumerable<JobPosting>> GetAllAsync()
         {
-            return await _context.JobPostings.ToListAsync();
+            return await _unitOfWork.JobPostings.GetAllAsync();
         }
 
         /// <inheritdoc/>
         public async Task<JobPosting?> GetByIdAsync(string id)
         {
-            return await _context.JobPostings.FindAsync(id);
+            return await _unitOfWork.JobPostings.GetByIdAsync(id);
         }
 
         /// <inheritdoc/>
-        // In JobPostingService.cs, modify the CreateAsync method:
-
         public async Task<JobPosting> CreateAsync(JobPostingCreateDto dto, string? userId)
         {
-            // Check if userId exists in the database before using it
-            if (userId != null)
-            {
-                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
-                if (!userExists)
-                {
-                    // User doesn't exist in database, set userId to null
-                    userId = null;
-                }
-            }
-
             var jobPosting = new JobPosting
             {
                 Id = Guid.NewGuid().ToString(),
@@ -72,42 +57,37 @@ namespace RagApi.Services
                 Status = dto.Status,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                CreatedByUserId = userId  // Will be null if user doesn't exist
+                CreatedByUserId = userId
             };
-
-            // If document ID is provided, update the document entity reference
-            if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
-            {
-                var document = await _context.Documents.FindAsync(dto.JobPostingDocumentId);
-                if (document != null)
-                {
-                    document.EntityId = jobPosting.Id;
-                    // Also update document's state
-                    _context.Documents.Update(document);
-                }
-            }
-
-            _context.JobPostings.Add(jobPosting);
 
             try
             {
-                await _context.SaveChangesAsync();
+                // Jos dokumentti-ID on annettu, päivitä dokumentin entityId-viittaus
+                if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
+                {
+                    var document = await _unitOfWork.Documents.GetByIdAsync(dto.JobPostingDocumentId);
+                    if (document != null)
+                    {
+                        document.EntityId = jobPosting.Id;
+                        await _unitOfWork.Documents.UpdateAsync(document);
+                    }
+                }
+
+                await _unitOfWork.JobPostings.AddAsync(jobPosting);
+                await _unitOfWork.CommitAsync();
+
+                return jobPosting;
             }
-            catch (DbUpdateException ex)
+            catch (Exception ex)
             {
-                // Log the exception details
-                throw new Exception($"Failed to create job posting: {ex.InnerException?.Message}", ex);
+                throw new Exception($"Failed to create job posting: {ex.Message}", ex);
             }
-
-            return jobPosting;
         }
-
-
 
         /// <inheritdoc/>
         public async Task<JobPosting?> UpdateAsync(string id, JobPostingUpdateDto dto)
         {
-            var jobPosting = await _context.JobPostings.FindAsync(id);
+            var jobPosting = await _unitOfWork.JobPostings.GetByIdAsync(id);
             if (jobPosting == null)
                 return null;
 
@@ -120,17 +100,20 @@ namespace RagApi.Services
             jobPosting.SalaryMin = dto.SalaryMin;
             jobPosting.SalaryMax = dto.SalaryMax;
             jobPosting.SalaryCurrency = dto.SalaryCurrency;
+
             // Only update document ID if provided
             if (!string.IsNullOrEmpty(dto.JobPostingDocumentId))
             {
                 jobPosting.JobPostingDocumentId = dto.JobPostingDocumentId;
             }
+
             jobPosting.PublishedDate = dto.PublishedDate;
             jobPosting.ExpirationDate = dto.ExpirationDate;
             jobPosting.Status = dto.Status;
             jobPosting.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await _unitOfWork.JobPostings.UpdateAsync(jobPosting);
+            await _unitOfWork.CommitAsync();
 
             return jobPosting;
         }
@@ -138,11 +121,11 @@ namespace RagApi.Services
         /// <inheritdoc/>
         public async Task DeleteAsync(string id)
         {
-            var jobPosting = await _context.JobPostings.FindAsync(id);
+            var jobPosting = await _unitOfWork.JobPostings.GetByIdAsync(id);
             if (jobPosting != null)
             {
-                _context.JobPostings.Remove(jobPosting);
-                await _context.SaveChangesAsync();
+                await _unitOfWork.JobPostings.DeleteAsync(jobPosting);
+                await _unitOfWork.CommitAsync();
             }
             else
             {
@@ -153,46 +136,31 @@ namespace RagApi.Services
         /// <inheritdoc/>
         public async Task<string> UploadDocumentAsync(string jobPostingId, IFormFile file, string? userId)
         {
-            var jobPosting = await _context.JobPostings.FindAsync(jobPostingId);
+            var jobPosting = await _unitOfWork.JobPostings.GetByIdAsync(jobPostingId);
             if (jobPosting == null)
                 throw new KeyNotFoundException("Job posting not found");
 
-            // Check if userId exists in the database before using it
-            if (userId != null)
-            {
-                var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
-                if (!userExists)
-                {
-                    // User doesn't exist in database, set userId to null
-                    userId = null;
-                }
-            }
-
-            // Upload and process document
+            // Käytä dokumenttipalvelua lataamaan dokumentti
             var documentId = await _documentService.UploadAndProcessDocumentAsync(
                 file,
                 "JobPosting",
                 jobPostingId,
-                userId); // userId will be null if user doesn't exist
+                userId);
 
-            // Update job posting's document reference
+            // Päivitä työilmoituksen dokumenttiviite
             jobPosting.JobPostingDocumentId = documentId;
             jobPosting.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await _unitOfWork.JobPostings.UpdateAsync(jobPosting);
+            await _unitOfWork.CommitAsync();
 
             return documentId;
         }
 
-
         /// <inheritdoc/>
         public async Task<IEnumerable<JobPosting>> GetActiveAsync()
         {
-            var currentDate = DateTime.UtcNow.Date;
-
-            return await _context.JobPostings
-                .Where(jp => jp.Status == "Active" && jp.ExpirationDate >= currentDate)
-                .ToListAsync();
+            return await _unitOfWork.JobPostings.GetActiveJobPostingsAsync();
         }
     }
 }

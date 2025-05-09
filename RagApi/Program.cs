@@ -21,6 +21,8 @@ using RagApi.Helpers;
 using Microsoft.Extensions.Caching.Memory;
 using RagApi.Api.Middleware;
 using RagApi.Api.Auth;
+using RagApi.Data.Repositories;
+using RagApi.Interfaces.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +82,19 @@ builder.Services.AddAzureAdAuthentication(builder.Configuration);
 
 // Add Entra auth service
 builder.Services.AddScoped<EntraAuthService>();
+
+// Register the generic Repository
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+// Register specific repositories
+builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
+builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
+builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
+builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+
+// Register Unit of Work
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
 // Register application services
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IVectorSearchService, VectorSearchService>();
@@ -88,7 +103,7 @@ builder.Services.AddScoped<IOpenAIService, OpenAIService>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IRagService, RagService>();
 
-// Register new recruitment application services
+// Register recruitment application services
 builder.Services.AddScoped<ICandidateService, CandidateService>();
 builder.Services.AddScoped<IJobPostingService, JobPostingService>();
 builder.Services.AddScoped<IApplicationService, ApplicationService>();
