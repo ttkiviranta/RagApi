@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models.Dto;
 
@@ -16,10 +18,14 @@ namespace RagApi.Api.Controllers
     public class JobPostingsController : ControllerBase
     {
         private readonly IJobPostingService _jobPostingService;
+        private readonly ApplicationDbContext _dbContext;
 
-        public JobPostingsController(IJobPostingService jobPostingService)
+        public JobPostingsController(
+            IJobPostingService jobPostingService,
+            ApplicationDbContext dbContext)
         {
             _jobPostingService = jobPostingService;
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -67,7 +73,7 @@ namespace RagApi.Api.Controllers
         {
             try
             {
-                var userId = GetCurrentUserId();
+                var userId = await GetVerifiedUserIdAsync();
 
                 // Pass userId (can be null) to service
                 var jobPosting = await _jobPostingService.CreateAsync(dto, userId);
@@ -133,7 +139,7 @@ namespace RagApi.Api.Controllers
                 if (file == null || file.Length == 0)
                     return BadRequest(new { error = true, message = "No file was uploaded" });
 
-                var userId = GetCurrentUserId();
+                var userId = await GetVerifiedUserIdAsync();
 
                 // Pass userId (can be null) to service
                 var documentId = await _jobPostingService.UploadDocumentAsync(id, file, userId);
@@ -168,12 +174,25 @@ namespace RagApi.Api.Controllers
         }
 
         /// <summary>
-        /// Gets the current user ID from claims, may return null if user is not authenticated
+        /// Gets the current user ID from claims, verifies the user exists in the database
         /// </summary>
-        private string? GetCurrentUserId()
+        private async Task<string?> GetVerifiedUserIdAsync()
         {
-            // Get the logged-in user's ID, can be null if not authenticated
-            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // Get the logged-in user's ID
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            // If we have a user ID, verify it exists in the database
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userExists = await _dbContext.Users.AnyAsync(u => u.Id == userId);
+                if (!userExists)
+                {
+                    // User doesn't exist in the database yet
+                    return null;
+                }
+            }
+
+            return userId;
         }
     }
 }

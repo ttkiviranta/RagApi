@@ -66,7 +66,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-
         /// <summary>
         /// Download document content
         /// </summary>
