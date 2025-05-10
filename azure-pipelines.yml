@@ -1,14 +1,11 @@
 trigger:
 - master
 - main
-
 pool:
   name: SelfHostedPool
-
 variables:
   buildConfiguration: 'Release'
   dotNetVersion: '8.0.x'
-
 stages:
 - stage: Build
   jobs:
@@ -19,20 +16,25 @@ stages:
         packageType: 'sdk'
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
-
     - task: DotNetCoreCLI@2
       inputs:
         command: 'restore'
         projects: '**/*.csproj'
       displayName: 'Restore NuGet packages'
-
     - task: DotNetCoreCLI@2
       inputs:
         command: 'build'
         projects: '**/*.csproj'
         arguments: '--configuration $(buildConfiguration)'
       displayName: 'Build projects'
-
+    # Päivitetty yksikkötestien ajo vastaamaan projektisi rakennetta
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'test'
+        projects: '**/*.Tests.csproj'
+        arguments: '--configuration $(buildConfiguration)'
+        publishTestResults: true
+      displayName: 'Run Unit Tests'
     - task: DotNetCoreCLI@2
       inputs:
         command: 'publish'
@@ -40,13 +42,11 @@ stages:
         arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
         zipAfterPublish: true
       displayName: 'Publish projects'
-
     - task: PublishBuildArtifacts@1
       inputs:
         pathToPublish: '$(Build.ArtifactStagingDirectory)'
         artifactName: 'drop'
       displayName: 'Publish artifacts'
-
 - stage: Deploy
   dependsOn: Build
   condition: succeeded()
