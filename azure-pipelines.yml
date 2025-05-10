@@ -31,8 +31,8 @@ stages:
     - task: DotNetCoreCLI@2
       inputs:
         command: 'test'
-        projects: '**/*.Tests.csproj'
-        arguments: '--configuration $(buildConfiguration) --framework net8.0'
+        projects: '**/RagApi.Tests.csproj'
+        arguments: '--configuration $(buildConfiguration) --verbosity detailed'
         publishTestResults: true
       displayName: 'Run Unit Tests'
     - task: DotNetCoreCLI@2
