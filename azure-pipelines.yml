@@ -17,92 +17,65 @@ stages:
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
     
-    # Yksinkertainen puhdistusoperaatio
+    # 1. Poista obj-kansiot
     - task: PowerShell@2
-      displayName: 'Clean Build Environment'
+      displayName: 'Clean obj folders'
       inputs:
         targetType: 'inline'
         script: |
-          Write-Host "Removing all bin and obj folders for a clean build"
-          Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | ForEach-Object {
+          Write-Host "Removing obj folders to prevent duplicate attribute errors"
+          Get-ChildItem -Path $(Build.SourcesDirectory) -Include "obj" -Directory -Recurse | ForEach-Object {
             Write-Host "Removing $($_.FullName)"
             Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
           }
     
-    # Korjaa testiprojektin TargetFramework
+    # 2. Korjaa testiprojektin versio
     - task: PowerShell@2
       displayName: 'Fix Test Project Framework'
       inputs:
         targetType: 'inline'
         script: |
-          $testProjPath = "$(Build.SourcesDirectory)\RagApi\RagApi.Tests\RagApi.Tests.csproj"
-          if (Test-Path $testProjPath) {
-            Write-Host "Found test project at $testProjPath"
-            $content = Get-Content $testProjPath -Raw
-            
-            # Korvaa .NET 9.0 .NET 8.0:lla
-            $newContent = $content -replace "<TargetFramework>net9.0</TargetFramework>", "<TargetFramework>net8.0</TargetFramework>"
-            
-            # Kirjoita päivitetty sisältö
-            Set-Content $testProjPath $newContent -Force
-            Write-Host "Updated test project TargetFramework to net8.0"
-          } else {
-            Write-Host "Test project not found at expected path. Searching..."
-            $testProj = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "RagApi.Tests.csproj" -Recurse | Select-Object -First 1
-            if ($testProj) {
-              Write-Host "Found test project at $($testProj.FullName)"
-              $content = Get-Content $testProj.FullName -Raw
-              $newContent = $content -replace "<TargetFramework>net9.0</TargetFramework>", "<TargetFramework>net8.0</TargetFramework>"
-              Set-Content $testProj.FullName $newContent -Force
-              Write-Host "Updated test project TargetFramework to net8.0"
-            } else {
-              Write-Host "Test project not found!"
-            }
+          Write-Host "Fixing Test Project Framework version"
+          $testProject = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "*RagApi.Tests.csproj" -Recurse | Select-Object -First 1
+          if ($testProject) {
+            Write-Host "Found test project at $($testProject.FullName)"
+            $content = Get-Content $testProject.FullName -Raw
+            $updatedContent = $content -replace "<TargetFramework>net9.0</TargetFramework>", "<TargetFramework>net8.0</TargetFramework>"
+            Set-Content $testProject.FullName $updatedContent -Force
+            Write-Host "Updated TargetFramework to net8.0"
           }
     
-    # Käännä vain testiprojekti
+    # 3. Käännä ja julkaise pääprojekti estäen automaattiset attribuutit
     - task: DotNetCoreCLI@2
-      displayName: 'Build Test Project Only'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+      displayName: 'Restore NuGet packages'
+    
+    - task: DotNetCoreCLI@2
       inputs:
         command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration) /p:GenerateAssemblyInfo=false'
+      displayName: 'Build projects (without auto assembly info)'
+    
+    # 4. Testaa testiprojekti
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'test'
         projects: '**/RagApi.Tests.csproj'
-        arguments: '--configuration $(buildConfiguration)'
+        arguments: '--configuration $(buildConfiguration) --no-build'
+        publishTestResults: true
+        continueOnError: true
+      displayName: 'Run Unit Tests (Allow Failure)'
     
-    # Aja testit, mutta salli epäonnistuminen
-    - task: PowerShell@2
-      displayName: 'Run Tests (Allow Failure)'
-      inputs:
-        targetType: 'inline'
-        script: |
-          Write-Host "Running tests with detailed logging"
-          $testProj = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "RagApi.Tests.csproj" -Recurse | Select-Object -First 1
-          if ($testProj) {
-            Write-Host "Found test project at $($testProj.FullName)"
-            dotnet test $testProj.FullName --configuration $(buildConfiguration) --verbosity normal --no-build
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "##vso[task.logissue type=warning]Tests failed, but continuing pipeline"
-              Write-Host "##vso[task.complete result=SucceededWithIssues;]Tests failed, but marking as partially successful"
-            }
-          } else {
-            Write-Host "Test project not found!"
-          }
-    
-    # Käännä ja julkaise pääprojekti
+    # 5. Julkaise sovellus
     - task: DotNetCoreCLI@2
-      displayName: 'Build Main Project'
-      inputs:
-        command: 'build'
-        projects: '**/RagApi.csproj'
-        arguments: '--configuration $(buildConfiguration)'
-    
-    - task: DotNetCoreCLI@2
-      displayName: 'Publish Main Project'
       inputs:
         command: 'publish'
-        publishWebProjects: false
-        projects: '**/RagApi.csproj'
-        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) --no-build'
-        zipAfterPublish: true
+        publishWebProjects: true
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) /p:GenerateAssemblyInfo=false'
+      displayName: 'Publish projects (without auto assembly info)'
     
     - task: PublishBuildArtifacts@1
       inputs:
