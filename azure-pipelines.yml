@@ -1,11 +1,14 @@
 trigger:
 - master
 - main
+
 pool:
   name: SelfHostedPool
+
 variables:
   buildConfiguration: 'Release'
   dotNetVersion: '8.0.x'
+
 stages:
 - stage: Build
   jobs:
@@ -17,117 +20,53 @@ stages:
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
     
-    # Puhdista ja käytä olemassa olevaa SDK:ta
+    # Puhdista käännösympäristö
     - task: PowerShell@2
-      displayName: 'Clean and Fix Projects'
+      displayName: 'Clean Build Environment'
       inputs:
         targetType: 'inline'
-        script: |
-          # 1. Täydellinen puhdistus
-          Write-Host "Performing complete cleanup of build artifacts"
-          Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | ForEach-Object {
-            Write-Host "Removing $($_.FullName)"
-            Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-          }
-          
-          # 2. Korjaa testiprojektin versio
-          Write-Host "Fixing test project framework version"
-          $testProjects = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "*Tests*.csproj" -Recurse
-          foreach ($project in $testProjects) {
-            Write-Host "Checking $($project.FullName)"
-            $content = Get-Content $project.FullName -Raw
-            $updatedContent = $content -replace "<TargetFramework>net9.0</TargetFramework>", "<TargetFramework>net8.0</TargetFramework>"
-            Set-Content $project.FullName $updatedContent -Force
-          }
-          
-          # 3. Tarkista minkä versioinen SDK on käytössä
-          Write-Host "Checking installed .NET SDK version"
-          $dotnetVersion = dotnet --version
-          Write-Host "Using .NET SDK version: $dotnetVersion"
+        script: 'Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue'
     
-    # Restore paketit ilman rajoituksia
+    # Käännä ja julkaise pääprojekti
     - task: DotNetCoreCLI@2
-      inputs:
-        command: 'restore'
-        projects: '**/*.csproj'
-      displayName: 'Restore NuGet packages'
-    
-    # Kokeile yksinkertaista clean+build -prosessia
-    - task: DotNetCoreCLI@2
-      inputs:
-        command: 'custom'
-        custom: 'clean'
-        projects: '**/*.csproj'
-      displayName: 'Clean projects'
-      continueOnError: true
-    
-    # Build erillisillä projekteilla käyttäen /t:rebuild
-    - task: PowerShell@2
-      displayName: 'Build Projects Separately'
-      inputs:
-        targetType: 'inline'
-        script: |
-          # Käännä ensin testiprojektit
-          Write-Host "Building test projects"
-          $testProjects = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "*Tests*.csproj" -Recurse
-          foreach ($project in $testProjects) {
-            Write-Host "Building test project: $($project.FullName)"
-            dotnet build $project.FullName --configuration $(buildConfiguration) /t:rebuild /p:GenerateAssemblyInfo=false
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "Warning: Test project build failed but continuing" -ForegroundColor Yellow
-            }
-          }
-          
-          # Käännä sitten pääprojekti
-          Write-Host "Building main projects"
-          $mainProjects = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "RagApi.csproj" -Recurse
-          foreach ($project in $mainProjects) {
-            Write-Host "Building main project: $($project.FullName)"
-            dotnet build $project.FullName --configuration $(buildConfiguration) /t:rebuild /p:GenerateAssemblyInfo=false
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host "Warning: Main project build failed but continuing" -ForegroundColor Yellow
-            }
-          }
-      continueOnError: true
-    
-    # Julkaise sovellus
-    - task: DotNetCoreCLI@2
+      displayName: 'Publish Main Project'
       inputs:
         command: 'publish'
-        publishWebProjects: true
+        publishWebProjects: false
+        projects: '**/RagApi.csproj'
         arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) /p:GenerateAssemblyInfo=false'
         zipAfterPublish: true
-      displayName: 'Publish projects'
       continueOnError: true
     
     # Julkaise artefaktit
     - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifacts'
       inputs:
         pathToPublish: '$(Build.ArtifactStagingDirectory)'
         artifactName: 'drop'
-      displayName: 'Publish artifacts'
+      continueOnError: true
       
 - stage: Deploy
   dependsOn: Build
-  condition: succeededOrFailed() # Yritetään deployata vaikka build epäonnistuisi
+  condition: succeededOrFailed()
   jobs:
   - job: DeployToAzure
     steps:
     - task: DownloadBuildArtifacts@1
+      displayName: 'Download Build Artifacts'
       inputs:
         buildType: 'current'
         downloadType: 'single'
         artifactName: 'drop'
         downloadPath: '$(System.ArtifactsDirectory)'
-      displayName: 'Download Build Artifacts'
       continueOnError: true
-        
+    
     - task: AzureWebApp@1
+      displayName: 'Deploy to Azure App Service'
       inputs:
         azureSubscription: 'AzureRagApiConnection'
         appType: 'webApp'
         appName: 'ragapi'
         package: '$(System.ArtifactsDirectory)/drop/**/*.zip'
         deploymentMethod: 'auto'
-      displayName: 'Deploy to Azure App Service'
       continueOnError: true
