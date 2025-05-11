@@ -16,6 +16,31 @@ stages:
         packageType: 'sdk'
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
+    # Lisätty manuaalinen korjaus TargetFramework-määritykselle
+    - task: PowerShell@2
+      displayName: 'Fix TargetFramework'
+      inputs:
+        targetType: 'inline'
+        script: |
+          $csprojPath = "$(Build.SourcesDirectory)\RagApi\RagApi.Tests\RagApi.Tests.csproj"
+          Write-Host "Fixing TargetFramework in $csprojPath"
+          if (Test-Path $csprojPath) {
+            $content = Get-Content $csprojPath -Raw
+            $newContent = $content -replace "<TargetFramework>net9.0</TargetFramework>","<TargetFramework>net8.0</TargetFramework>"
+            Set-Content $csprojPath $newContent -NoNewline
+            Write-Host "TargetFramework updated successfully"
+          } else {
+            Write-Host "File not found at $csprojPath"
+            Write-Host "Searching for RagApi.Tests.csproj files..."
+            $files = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "RagApi.Tests.csproj" -Recurse
+            foreach ($file in $files) {
+              Write-Host "Found: $($file.FullName)"
+              $content = Get-Content $file.FullName -Raw
+              $newContent = $content -replace "<TargetFramework>net9.0</TargetFramework>","<TargetFramework>net8.0</TargetFramework>"
+              Set-Content $file.FullName $newContent -NoNewline
+              Write-Host "Updated TargetFramework in $($file.FullName)"
+            }
+          }
     - task: DotNetCoreCLI@2
       inputs:
         command: 'restore'
