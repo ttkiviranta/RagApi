@@ -16,42 +16,14 @@ stages:
         packageType: 'sdk'
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
-    # Lisätty manuaalinen korjaus TargetFramework-määritykselle
+    # Yksinkertainen puhdistus
     - task: PowerShell@2
-      displayName: 'Fix TargetFramework'
+      displayName: 'Clean build artifacts'
       inputs:
         targetType: 'inline'
         script: |
-          $csprojPath = "$(Build.SourcesDirectory)\RagApi\RagApi.Tests\RagApi.Tests.csproj"
-          Write-Host "Fixing TargetFramework in $csprojPath"
-          if (Test-Path $csprojPath) {
-            $content = Get-Content $csprojPath -Raw
-            $newContent = $content -replace "<TargetFramework>net9.0</TargetFramework>","<TargetFramework>net8.0</TargetFramework>"
-            Set-Content $csprojPath $newContent -NoNewline
-            Write-Host "TargetFramework updated successfully"
-          } else {
-            Write-Host "File not found at $csprojPath"
-            Write-Host "Searching for RagApi.Tests.csproj files..."
-            $files = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "RagApi.Tests.csproj" -Recurse
-            foreach ($file in $files) {
-              Write-Host "Found: $($file.FullName)"
-              $content = Get-Content $file.FullName -Raw
-              $newContent = $content -replace "<TargetFramework>net9.0</TargetFramework>","<TargetFramework>net8.0</TargetFramework>"
-              Set-Content $file.FullName $newContent -NoNewline
-              Write-Host "Updated TargetFramework in $($file.FullName)"
-            }
-          }
-    # Lisätty väliaikaisten käännöstiedostojen puhdistus
-    - task: PowerShell@2
-      displayName: 'Clean obj and bin folders'
-      inputs:
-        targetType: 'inline'
-        script: |
-          Write-Host "Cleaning obj and bin folders to fix duplicate attribute errors"
-          Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | ForEach-Object {
-            Write-Host "Removing $($_.FullName)"
-            Remove-Item -Path $_.FullName -Recurse -Force
-          }
+          Write-Host "Cleaning bin and obj folders"
+          Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     - task: DotNetCoreCLI@2
       inputs:
         command: 'restore'
@@ -61,21 +33,21 @@ stages:
       inputs:
         command: 'build'
         projects: '**/*.csproj'
-        arguments: '--configuration $(buildConfiguration) --no-restore'
+        arguments: '--configuration $(buildConfiguration)'
       displayName: 'Build projects'
-    # Päivitetty yksikkötestien ajo vastaamaan projektisi rakennetta
+    # Testien ajo
     - task: DotNetCoreCLI@2
       inputs:
         command: 'test'
         projects: '**/RagApi.Tests.csproj'
-        arguments: '--configuration $(buildConfiguration) --no-build --verbosity detailed'
+        arguments: '--configuration $(buildConfiguration)'
         publishTestResults: true
       displayName: 'Run Unit Tests'
     - task: DotNetCoreCLI@2
       inputs:
         command: 'publish'
         publishWebProjects: true
-        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) --no-build'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
         zipAfterPublish: true
       displayName: 'Publish projects'
     - task: PublishBuildArtifacts@1
