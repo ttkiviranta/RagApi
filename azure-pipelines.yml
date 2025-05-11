@@ -41,6 +41,17 @@ stages:
               Write-Host "Updated TargetFramework in $($file.FullName)"
             }
           }
+    # Lisätty väliaikaisten käännöstiedostojen puhdistus
+    - task: PowerShell@2
+      displayName: 'Clean obj and bin folders'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host "Cleaning obj and bin folders to fix duplicate attribute errors"
+          Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | ForEach-Object {
+            Write-Host "Removing $($_.FullName)"
+            Remove-Item -Path $_.FullName -Recurse -Force
+          }
     - task: DotNetCoreCLI@2
       inputs:
         command: 'restore'
@@ -50,21 +61,21 @@ stages:
       inputs:
         command: 'build'
         projects: '**/*.csproj'
-        arguments: '--configuration $(buildConfiguration)'
+        arguments: '--configuration $(buildConfiguration) --no-restore'
       displayName: 'Build projects'
     # Päivitetty yksikkötestien ajo vastaamaan projektisi rakennetta
     - task: DotNetCoreCLI@2
       inputs:
         command: 'test'
         projects: '**/RagApi.Tests.csproj'
-        arguments: '--configuration $(buildConfiguration) --verbosity detailed'
+        arguments: '--configuration $(buildConfiguration) --no-build --verbosity detailed'
         publishTestResults: true
       displayName: 'Run Unit Tests'
     - task: DotNetCoreCLI@2
       inputs:
         command: 'publish'
         publishWebProjects: true
-        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) --no-build'
         zipAfterPublish: true
       displayName: 'Publish projects'
     - task: PublishBuildArtifacts@1
