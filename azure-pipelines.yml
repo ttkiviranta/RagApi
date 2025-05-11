@@ -17,16 +17,15 @@ stages:
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
     
-    # Testiprojektin versiokorjaus
+    # Korjaus sekä versio-ongelmaan että duplikaatti-attribuutteihin
     - task: PowerShell@2
-      displayName: 'Fix Test Project Framework Version'
+      displayName: 'Fix Project Issues'
       inputs:
         targetType: 'inline'
         script: |
+          # 1. Korjaa testiprojektin .NET versio
           Write-Host "Fixing RagApi.Tests.csproj TargetFramework"
-          $testProjectPattern = "*RagApi.Tests.csproj"
-          $testProjects = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter $testProjectPattern -Recurse
-          
+          $testProjects = Get-ChildItem -Path $(Build.SourcesDirectory) -Filter "*RagApi.Tests.csproj" -Recurse
           foreach ($project in $testProjects) {
             Write-Host "Checking $($project.FullName)"
             $content = Get-Content $project.FullName -Raw
@@ -34,34 +33,44 @@ stages:
             Set-Content $project.FullName $newContent -Force
             Write-Host "Updated $($project.FullName) TargetFramework to net8.0"
           }
+          
+          # 2. Poista obj-kansiot duplikaatti-attribuuttien välttämiseksi
+          Write-Host "Removing obj folders to avoid duplicate attributes"
+          Get-ChildItem -Path $(Build.SourcesDirectory) -Include obj -Directory -Recurse | ForEach-Object {
+            Write-Host "Removing $($_.FullName)"
+            Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+          }
     
+    # Restore NuGet-paketit
     - task: DotNetCoreCLI@2
       inputs:
         command: 'restore'
         projects: '**/*.csproj'
       displayName: 'Restore NuGet packages'
     
+    # Build estäen duplikaatti-attribuuttien luomisen
     - task: DotNetCoreCLI@2
       inputs:
         command: 'build'
         projects: '**/*.csproj'
-        arguments: '--configuration $(buildConfiguration)'
-      displayName: 'Build projects'
+        arguments: '--configuration $(buildConfiguration) /p:GenerateAssemblyInfo=false'
+      displayName: 'Build projects (no auto assembly info)'
     
     # Testien ajo
     - task: DotNetCoreCLI@2
       inputs:
         command: 'test'
         projects: '**/RagApi.Tests.csproj'
-        arguments: '--configuration $(buildConfiguration)'
+        arguments: '--configuration $(buildConfiguration) --no-build'
         publishTestResults: true
       displayName: 'Run Unit Tests'
     
+    # Julkaisu
     - task: DotNetCoreCLI@2
       inputs:
         command: 'publish'
         publishWebProjects: true
-        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory) --no-build'
         zipAfterPublish: true
       displayName: 'Publish projects'
     
