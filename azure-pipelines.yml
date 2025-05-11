@@ -17,9 +17,9 @@ stages:
         version: '$(dotNetVersion)'
       displayName: 'Install .NET SDK'
     
-    # Korjaus sekä versio-ongelmaan että duplikaatti-attribuutteihin
+    # Kokonaisvaltainen puhdistus ja korjaus
     - task: PowerShell@2
-      displayName: 'Fix Project Issues'
+      displayName: 'Fix Project Issues and Clean Build'
       inputs:
         targetType: 'inline'
         script: |
@@ -34,12 +34,27 @@ stages:
             Write-Host "Updated $($project.FullName) TargetFramework to net8.0"
           }
           
-          # 2. Poista obj-kansiot duplikaatti-attribuuttien välttämiseksi
-          Write-Host "Removing obj folders to avoid duplicate attributes"
-          Get-ChildItem -Path $(Build.SourcesDirectory) -Include obj -Directory -Recurse | ForEach-Object {
+          # 2. Poista bin ja obj kansiot kokonaan
+          Write-Host "Removing bin and obj folders for a clean build"
+          Get-ChildItem -Path $(Build.SourcesDirectory) -Include bin,obj -Directory -Recurse | ForEach-Object {
             Write-Host "Removing $($_.FullName)"
             Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
           }
+          
+          # 3. Varmista, että ei ole jäljellä AssemblyAttributes-tiedostoja
+          Write-Host "Removing any lingering AssemblyAttributes.cs files"
+          Get-ChildItem -Path $(Build.SourcesDirectory) -Include "*AssemblyAttributes.cs" -Recurse | ForEach-Object {
+            Write-Host "Removing $($_.FullName)"
+            Remove-Item -Path $_.FullName -Force -ErrorAction SilentlyContinue
+          }
+    
+    # Tehdään dotnet clean vielä varmuuden vuoksi
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'custom'
+        custom: 'clean'
+        projects: '**/*.csproj'
+      displayName: 'Clean dotnet projects'
     
     # Restore NuGet-paketit
     - task: DotNetCoreCLI@2
@@ -48,13 +63,15 @@ stages:
         projects: '**/*.csproj'
       displayName: 'Restore NuGet packages'
     
-    # Build estäen duplikaatti-attribuuttien luomisen
-    - task: DotNetCoreCLI@2
+    # Kokeillaan eri lähestymistapaa build-vaiheessa
+    - task: PowerShell@2
+      displayName: 'Custom Build With MSBuild Parameters'
       inputs:
-        command: 'build'
-        projects: '**/*.csproj'
-        arguments: '--configuration $(buildConfiguration) /p:GenerateAssemblyInfo=false'
-      displayName: 'Build projects (no auto assembly info)'
+        targetType: 'inline'
+        script: |
+          # Käytetään dotnet build -komentoa mukautetuilla parametreilla
+          Write-Host "Building projects with custom parameters"
+          dotnet build --configuration $(buildConfiguration) --no-restore /p:GenerateAssemblyInfo=false /p:GenerateTargetFrameworkAttribute=false
     
     # Testien ajo
     - task: DotNetCoreCLI@2
