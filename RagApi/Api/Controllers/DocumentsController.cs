@@ -1,0 +1,176 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RagApi.Data;
+using RagApi.Interfaces;
+using RagApi.Models;
+
+namespace RagApi.Api.Controllers
+{
+    [Authorize] 
+    [ApiController]
+    [Route("api/[controller]")]
+    public class DocumentsController : ControllerBase
+    {
+        private readonly IDocumentService _documentService;
+        private readonly ApplicationDbContext _dbContext;
+
+        public DocumentsController(IDocumentService documentService, ApplicationDbContext dbContext)
+        {
+            _documentService = documentService;
+            _dbContext = dbContext;
+        }
+
+        /// <summary>
+        /// Get a document by ID
+        /// </summary>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(string id)
+        {
+            try
+            {
+                var document = await _documentService.GetByIdAsync(id);
+                return Ok(new { error = false, data = document });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = true, message = "Document not found" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error getting document: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Get all documents
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            try
+            {
+                // Use empty string instead of null value for better compatibility
+                var documents = await _documentService.GetByEntityIdAsync(string.Empty);
+                return Ok(new { error = false, data = documents ?? new List<Document>() });
+            }
+            catch (Exception)
+            {
+                // Remove unused exception variable and return empty list with 200 status
+                return Ok(new { error = false, data = new List<Document>() });
+            }
+        }
+
+        /// <summary>
+        /// Download document content
+        /// </summary>
+        [HttpGet("{id}/content")]
+        public async Task<IActionResult> DownloadContent(string id)
+        {
+            try
+            {
+                var document = await _documentService.GetByIdAsync(id);
+                var content = await _documentService.GetDocumentContentAsync(id);
+
+                return File(content, document.ContentType, document.FileName);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = true, message = "Document not found" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error downloading document: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Get documents by entity ID
+        /// </summary>
+        [HttpGet("entity/{entityId}")]
+        public async Task<IActionResult> GetByEntityId(string entityId)
+        {
+            try
+            {
+                var documents = await _documentService.GetByEntityIdAsync(entityId);
+                return Ok(new { error = false, data = documents });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error getting documents: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Upload a document
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> UploadDocument(IFormFile file, [FromForm] string documentType, [FromForm] string entityId)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                    return BadRequest(new { error = true, message = "No file was uploaded" });
+
+                // Hae käyttäjä-ID
+                var userId = GetCurrentUserId();
+
+                // KORJAUS: Tarkista että käyttäjä löytyy tietokannasta
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    var userExists = await _dbContext.Users.AnyAsync(u => u.Id == userId);
+                    if (!userExists)
+                    {
+                        // Käyttäjää ei löydy tietokannasta, aseta userId nulliksi
+                        userId = null;
+                    }
+                }
+
+                var documentId = await _documentService.UploadAndProcessDocumentAsync(file, documentType, entityId, userId);
+
+                return Ok(new { error = false, data = new { documentId } });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = true, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error uploading document: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Delete a document
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            try
+            {
+                await _documentService.DeleteAsync(id);
+                return Ok(new { error = false, message = "Document deleted successfully" });
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = true, message = "Document not found" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = true, message = $"Error deleting document: {ex.Message}" });
+            }
+        }
+
+        // Update GetCurrentUserId method to properly support nullable user IDs
+        private string? GetCurrentUserId()
+        {
+            // Return null instead of "system-user" as we now support null values in the database
+            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+    }
+}

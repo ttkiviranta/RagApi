@@ -1,0 +1,70 @@
+{
+  "ApplicationInsights": {
+    "ConnectionString": "YOUR_APPLICATION_INSIGHTS_CONNECTION_STRING"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft": "Warning",
+      "Microsoft.Hosting.Lifetime": "Information"
+    },
+    "ApplicationInsights": {
+      "LogLevel": {
+        "Default": "Information"
+      }
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "DefaultConnection": "YOUR_SQL_CONNECTION_STRING",
+    "AzureBlobStorage": "YOUR_AZURE_BLOB_STORAGE_CONNECTION_STRING"
+  },
+  "Azure": {
+    "FormRecognizer": {
+      "Endpoint": "YOUR_FORM_RECOGNIZER_ENDPOINT",
+      "Key": "YOUR_FORM_RECOGNIZER_KEY"
+    },
+    "Search": {
+      "Endpoint": "YOUR_SEARCH_ENDPOINT",
+      "IndexName": "pdf-documents",
+      "Key": "YOUR_SEARCH_KEY"
+    },
+    "OpenAI": {
+      "Endpoint": "YOUR_OPENAI_ENDPOINT",
+      "Key": "YOUR_OPENAI_KEY",
+      "EmbeddingDeployment": "text-embedding-ada-002",
+      "ChatDeployment": "gpt-35-turbo"
+    }
+  },
+  "AzureAd": {
+    "Instance": "https://login.microsoftonline.com/",
+    "TenantId": "YOUR_TENANT_ID",
+    "ClientId": "YOUR_CLIENT_ID",
+    "ClientSecret": "YOUR_CLIENT_SECRET",
+    "Scope": "https://graph.microsoft.com/.default",
+    "TokenExpirationInMinutes": 120,
+    "Groups": {
+      "Admin": "YOUR_ADMIN_GROUP_ID",
+      "User": "YOUR_USER_GROUP_ID"
+    }
+  },
+  "OpenAI": {
+    "MaxHistoryMessages": 10
+  },
+  "Application": {
+    "DefaultPageSize": 20,
+    "MaxPageSize": 100,
+    "DefaultSystemPromptName": "HR Job Matching",
+    "DocumentChunkSize": 1000,
+    "VectorDimensions": 1536,
+    "MinimumSearchScore": 0.5
+  },
+  "Security": {
+    "TokenKey": "YOUR_TOKEN_KEY",
+    "TokenExpirationMinutes": 60,
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://yourappdomain.com"
+    ]
+  }
+}
