@@ -2,19 +2,23 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using RagApi.Interfaces;
 using RagApi.Models;
 
 namespace RagApi.Api.Controllers
 {
-    [ApiController]
     [Route("api/[controller]")]
-    public class SystemPromptController : ControllerBase
+    public class SystemPromptController : BaseController
     {
         private readonly ISystemPromptService _systemPromptService;
 
-        public SystemPromptController(ISystemPromptService systemPromptService)
+        public SystemPromptController(
+            IMapper mapper,
+            IRequestContext requestContext,
+            ISystemPromptService systemPromptService)
+            : base(mapper, requestContext)
         {
             _systemPromptService = systemPromptService;
         }
@@ -28,11 +32,11 @@ namespace RagApi.Api.Controllers
             try
             {
                 var systemPrompts = await _systemPromptService.GetSystemPromptsAsync();
-                return Ok(systemPrompts);
+                return Success(systemPrompts);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving system prompts: {ex.Message}");
+                return Error($"Error retrieving system prompts: {ex.Message}");
             }
         }
 
@@ -47,14 +51,14 @@ namespace RagApi.Api.Controllers
                 var systemPrompt = await _systemPromptService.GetSystemPromptAsync(id);
                 if (systemPrompt == null)
                 {
-                    return NotFound($"System prompt not found with ID {id}");
+                    return NotFoundError($"System prompt not found with ID {id}");
                 }
 
-                return Ok(systemPrompt);
+                return Success(systemPrompt);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving system prompt: {ex.Message}");
+                return Error($"Error retrieving system prompt: {ex.Message}");
             }
         }
 
@@ -69,14 +73,14 @@ namespace RagApi.Api.Controllers
                 var systemPrompt = await _systemPromptService.GetDefaultSystemPromptAsync();
                 if (systemPrompt == null)
                 {
-                    return NotFound("No default system prompt has been set");
+                    return NotFoundError("No default system prompt has been set");
                 }
 
-                return Ok(systemPrompt);
+                return Success(systemPrompt);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving default system prompt: {ex.Message}");
+                return Error($"Error retrieving default system prompt: {ex.Message}");
             }
         }
 
@@ -88,7 +92,7 @@ namespace RagApi.Api.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
+                return BadRequestError(ModelState.ToString());
             }
 
             try
@@ -99,11 +103,11 @@ namespace RagApi.Api.Controllers
                     request.PromptText,
                     request.IsDefault);
 
-                return CreatedAtAction(nameof(GetSystemPrompt), new { id = systemPrompt.Id }, systemPrompt);
+                return Created(systemPrompt, nameof(GetSystemPrompt), new { id = systemPrompt.Id });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error creating system prompt: {ex.Message}");
+                return Error($"Error creating system prompt: {ex.Message}");
             }
         }
 
@@ -115,7 +119,7 @@ namespace RagApi.Api.Controllers
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState);
+                return BadRequestError(ModelState.ToString());
             }
 
             try
@@ -127,15 +131,15 @@ namespace RagApi.Api.Controllers
                     request.PromptText,
                     request.IsDefault);
 
-                return Ok(systemPrompt);
+                return Success(systemPrompt);
             }
             catch (ArgumentException ex)
             {
-                return NotFound(ex.Message);
+                return NotFoundError(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error updating system prompt: {ex.Message}");
+                return Error($"Error updating system prompt: {ex.Message}");
             }
         }
 
@@ -150,18 +154,18 @@ namespace RagApi.Api.Controllers
                 var result = await _systemPromptService.DeleteSystemPromptAsync(id);
                 if (!result)
                 {
-                    return NotFound($"System prompt not found with ID {id}");
+                    return NotFoundError($"System prompt not found with ID {id}");
                 }
 
                 return NoContent();
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequestError(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error deleting system prompt: {ex.Message}");
+                return Error($"Error deleting system prompt: {ex.Message}");
             }
         }
 
@@ -180,14 +184,14 @@ namespace RagApi.Api.Controllers
 
                 if (!result)
                 {
-                    return NotFound("User or system prompt not found");
+                    return NotFoundError("User or system prompt not found");
                 }
 
-                return Ok(new { Message = "System prompt assigned to user successfully" });
+                return Success(new { Message = "System prompt assigned to user successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error assigning system prompt to user: {ex.Message}");
+                return Error($"Error assigning system prompt to user: {ex.Message}");
             }
         }
 
@@ -202,14 +206,14 @@ namespace RagApi.Api.Controllers
                 var systemPrompt = await _systemPromptService.GetUserSystemPromptAsync(userId);
                 if (systemPrompt == null)
                 {
-                    return NotFound($"No system prompt found for user {userId}");
+                    return NotFoundError($"No system prompt found for user {userId}");
                 }
 
-                return Ok(systemPrompt);
+                return Success(systemPrompt);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error retrieving user's system prompt: {ex.Message}");
+                return Error($"Error retrieving user's system prompt: {ex.Message}");
             }
         }
     }

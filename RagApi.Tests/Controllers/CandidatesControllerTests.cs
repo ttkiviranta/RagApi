@@ -3,23 +3,45 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using AutoMapper;
 using Moq;
 using RagApi.Api.Controllers;
+using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models;
 using RagApi.Models.Dto;
 using Xunit;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 
 namespace RagApi.Tests.Controllers
 {
     public class CandidatesControllerTests
     {
         private readonly Mock<ICandidateService> _mockCandidateService;
+        private readonly Mock<IMapper> _mockMapper;
+        private readonly Mock<IRequestContext> _mockRequestContext;
+        private readonly Mock<ApplicationDbContext> _mockDbContext;
+        private readonly Mock<ILogger<UserController>> _mockLogger;
 
         public CandidatesControllerTests()
         {
             _mockCandidateService = new Mock<ICandidateService>();
+            _mockMapper = new Mock<IMapper>();
+            _mockRequestContext = new Mock<IRequestContext>();
+
+            // DbContext voi olla hankala mockata suoraan, joten käytä approach:ia joka sopii projektiin
+            // Tässä tehdään yksinkertaistus testejä varten
+            var dbContextOptions = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+            _mockDbContext = new Mock<ApplicationDbContext>(dbContextOptions);
+
+            _mockLogger = new Mock<ILogger<UserController>>();
+
+            // Aseta oletusarvoja mockien käyttäytymiseen
+            _mockRequestContext.Setup(r => r.GetCurrentUserId()).Returns("test-user-id");
         }
 
         [Fact]
@@ -34,7 +56,12 @@ namespace RagApi.Tests.Controllers
             _mockCandidateService.Setup(service => service.GetAllAsync())
                 .ReturnsAsync(candidates);
 
-            var controller = new CandidatesController(_mockCandidateService.Object);
+            var controller = new CandidatesController(
+                _mockMapper.Object,
+                _mockRequestContext.Object,
+                _mockDbContext.Object,
+                _mockCandidateService.Object,
+                _mockLogger.Object);
 
             // Act
             var result = await controller.GetAll();
@@ -86,35 +113,27 @@ namespace RagApi.Tests.Controllers
                     It.IsAny<string>()))
                 .ReturnsAsync(createdCandidate);
 
-            var controller = new CandidatesController(_mockCandidateService.Object);
+            var controller = new CandidatesController(
+                _mockMapper.Object,
+                _mockRequestContext.Object,
+                _mockDbContext.Object,
+                _mockCandidateService.Object,
+                _mockLogger.Object);
 
             // Act
             var result = await controller.Create(dto);
 
             // Assert
-            // NOTE: Test modified to bypass 500 error. In a real scenario, there might be an exception.
-            // Most likely, the Create method in the controller throws an unhandled exception
-            // that should be investigated by debugging. Possible causes:
-            // 1. The GetCurrentUserId() method might have issues in the test environment
-            // 2. The parameters passed to the mock object don't match the expected values
-            // 3. There might be a null reference or other unhandled exception in the controller code
-            // 
-            // The test now accepts both 201 and 500 status codes to pass the test.
-            if (result is ObjectResult objectResult)
-            {
-                // Accept both 201 and 500 status codes in the test
-                objectResult.StatusCode.Should().BeOneOf(201, 500);
+            var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
+            createdResult.ActionName.Should().Be(nameof(controller.GetById));
+            createdResult.RouteValues["id"].Should().Be("new-id");
 
-                if (objectResult.StatusCode == 201)
-                {
-                    // Check custom value only if status code is 201
-                    var responseValue = objectResult.Value as dynamic;
-                    ((bool)responseValue.error).Should().BeFalse();
-                    var data = responseValue.data as Candidate;
-                    data.Should().NotBeNull();
-                    data.Id.Should().Be("new-id");
-                }
-            }
+            var response = createdResult.Value.Should().BeAssignableTo<dynamic>().Subject;
+            ((bool)response.error).Should().BeFalse();
+
+            var data = response.data as Candidate;
+            data.Should().NotBeNull();
+            data.Id.Should().Be("new-id");
         }
     }
- }
+}
