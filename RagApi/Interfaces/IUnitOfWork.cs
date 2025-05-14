@@ -11,6 +11,7 @@ namespace RagApi.Interfaces
         IDocumentRepository Documents { get; }
         IJobPostingRepository JobPostings { get; }
         IApplicationRepository Applications { get; }
+        IUserRepository Users { get; }
 
         Task CommitAsync();
     }

@@ -17,6 +17,7 @@ namespace RagApi.Data
         private IDocumentRepository _documentRepository;
         private IJobPostingRepository _jobPostingRepository;
         private IApplicationRepository _applicationRepository;
+        private IUserRepository _userRepository;
 
         public UnitOfWork(
             ApplicationDbContext context,
@@ -39,6 +40,8 @@ namespace RagApi.Data
 
         public IApplicationRepository Applications =>
             _applicationRepository ??= new ApplicationRepository(_context);
+        public IUserRepository Users => 
+           _userRepository ??= new UserRepository(_context);
 
         public async Task CommitAsync()
         {

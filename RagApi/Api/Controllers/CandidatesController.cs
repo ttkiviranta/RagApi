@@ -3,25 +3,38 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RagApi.Data;
 using RagApi.Interfaces;
 using RagApi.Models.Dto;
+using RagApi.Services;
 
 namespace RagApi.Api.Controllers
 {
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
-    public class CandidatesController : ControllerBase
+    public class CandidatesController : BaseController
     {
         private readonly ICandidateService _candidateService;
 
-        public CandidatesController(ICandidateService candidateService)
+
+        public CandidatesController(
+           IMapper mapper,
+           IRequestContext requestContext,
+           ApplicationDbContext dbContext,
+           ICandidateService candidateService,
+           ILogger<UserController> logger)
+           : base(mapper, requestContext)
         {
             _candidateService = candidateService;
         }
+
+       
 
         /// <summary>
         /// Get all candidates
@@ -90,7 +103,7 @@ namespace RagApi.Api.Controllers
 
                 // Jos käyttäjä on kirjautunut, lisätään tieto siitä kuka loi kandidaatin (audit trail)
                 // mutta toiminta ei vaadi tunnistettua käyttäjää
-                var userId = GetCurrentUserId();
+                var userId = RequestContext.GetCurrentUserId();
                 var candidate = await _candidateService.CreateAsync(dto, userId);
 
                 return CreatedAtAction(nameof(GetById), new { id = candidate.Id },
@@ -155,7 +168,7 @@ namespace RagApi.Api.Controllers
                 if (file == null || file.Length == 0)
                     return BadRequest(new { error = true, message = "No file was uploaded" });
 
-                var userId = GetCurrentUserId();
+                var userId = RequestContext.GetCurrentUserId();
                 var documentId = await _candidateService.UploadResumeAsync(id, file, userId);
 
                 return Ok(new { error = false, data = new { documentId } });
@@ -181,7 +194,7 @@ namespace RagApi.Api.Controllers
                 if (file == null || file.Length == 0)
                     return BadRequest(new { error = true, message = "No file was uploaded" });
 
-                var userId = GetCurrentUserId();
+                var userId = RequestContext.GetCurrentUserId();
                 var documentId = await _candidateService.UploadCoverLetterAsync(id, file, userId);
 
                 return Ok(new { error = false, data = new { documentId } });
@@ -196,10 +209,5 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        private string? GetCurrentUserId()
-        {
-            // Get the logged-in user's ID (can be null if user is not authenticated)
-            return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        }
     }
 }

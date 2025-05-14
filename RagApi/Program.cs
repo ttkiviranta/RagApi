@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Azure.Storage.Blobs;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
@@ -69,6 +70,9 @@ builder.Services.AddSingleton(x => new SearchIndexClient(
     new Uri(builder.Configuration["Azure:Search:Endpoint"] ?? throw new InvalidOperationException("Search endpoint not found")),
     new AzureKeyCredential(builder.Configuration["Azure:Search:Key"] ?? throw new InvalidOperationException("Search key not found"))));
 
+// Add AutoMapper                                   
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
 // HTTP Client for OpenAI API calls
 builder.Services.AddHttpClient();
 // Add HTTP context accessor for authentication
@@ -83,6 +87,9 @@ builder.Services.AddAzureAdAuthentication(builder.Configuration);
 // Add Entra auth service
 builder.Services.AddScoped<EntraAuthService>();
 
+// Register RequestContext                          
+builder.Services.AddScoped<IRequestContext, RequestContext>();
+
 // Register the generic Repository
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 
@@ -91,6 +98,7 @@ builder.Services.AddScoped<ICandidateRepository, CandidateRepository>();
 builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
 builder.Services.AddScoped<IJobPostingRepository, JobPostingRepository>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Register Unit of Work
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -112,6 +120,7 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IJobMatchingService, JobMatchingService>();
 builder.Services.AddScoped<IDocumentIntelligenceService, DocumentIntelligenceService>();
 builder.Services.AddScoped<IBlobStorageService, BlobStorageService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Configure CORS to use allowed origins from appsettings
 builder.Services.AddCors(options =>
