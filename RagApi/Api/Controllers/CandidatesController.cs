@@ -15,7 +15,6 @@ using RagApi.Services;
 
 namespace RagApi.Api.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class CandidatesController : BaseController
@@ -91,7 +90,7 @@ namespace RagApi.Api.Controllers
                     validationErrors.Add("Email is required");
 
                 if (validationErrors.Any())
-                    return BadRequest(new { error = true, message = "Validation failed", errors = validationErrors });
+                    return BadRequestError("Validation failed");
 
                 // Varmista, että valinnaiset kentät eivät ole null
                 dto.Skills = dto.Skills ?? "";
@@ -106,14 +105,14 @@ namespace RagApi.Api.Controllers
                 var userId = RequestContext.GetCurrentUserId();
                 var candidate = await _candidateService.CreateAsync(dto, userId);
 
-                return CreatedAtAction(nameof(GetById), new { id = candidate.Id },
-                    new { error = false, data = candidate });
+                return Created(candidate, nameof(GetById), new { id = candidate.Id });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = true, message = $"Error creating candidate: {ex.Message}" });
+                return Error($"Error creating candidate: {ex.Message}");
             }
         }
+
 
 
         /// <summary>

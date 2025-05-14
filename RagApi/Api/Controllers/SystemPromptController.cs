@@ -6,9 +6,11 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using RagApi.Interfaces;
 using RagApi.Models;
+using RagApi.Models.Dto;
 
 namespace RagApi.Api.Controllers
 {
+    [ApiController]
     [Route("api/[controller]")]
     public class SystemPromptController : BaseController
     {
@@ -23,9 +25,6 @@ namespace RagApi.Api.Controllers
             _systemPromptService = systemPromptService;
         }
 
-        /// <summary>
-        /// Gets all system prompts
-        /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetSystemPrompts()
         {
@@ -40,9 +39,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Gets a system prompt by ID
-        /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetSystemPrompt(string id)
         {
@@ -62,9 +58,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Gets the default system prompt
-        /// </summary>
         [HttpGet("default")]
         public async Task<IActionResult> GetDefaultSystemPrompt()
         {
@@ -84,9 +77,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Creates a new system prompt
-        /// </summary>
         [HttpPost]
         public async Task<IActionResult> CreateSystemPrompt([FromBody] CreateSystemPromptRequest request)
         {
@@ -111,9 +101,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Updates an existing system prompt
-        /// </summary>
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSystemPrompt(string id, [FromBody] UpdateSystemPromptRequest request)
         {
@@ -143,9 +130,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Deletes a system prompt
-        /// </summary>
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSystemPrompt(string id)
         {
@@ -157,6 +141,7 @@ namespace RagApi.Api.Controllers
                     return NotFoundError($"System prompt not found with ID {id}");
                 }
 
+                // NoContent returns HTTP 204 with no body
                 return NoContent();
             }
             catch (InvalidOperationException ex)
@@ -169,9 +154,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Assigns a system prompt to a user
-        /// </summary>
         [HttpPost("user/{userId}/assign/{systemPromptId}")]
         public async Task<IActionResult> AssignSystemPromptToUser(string userId, string systemPromptId, [FromBody] AssignSystemPromptRequest request)
         {
@@ -195,9 +177,6 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Gets a user's system prompt
-        /// </summary>
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserSystemPrompt(string userId)
         {
@@ -216,40 +195,5 @@ namespace RagApi.Api.Controllers
                 return Error($"Error retrieving user's system prompt: {ex.Message}");
             }
         }
-    }
-
-    public class CreateSystemPromptRequest
-    {
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; }
-
-        [StringLength(500)]
-        public string Description { get; set; }
-
-        [Required]
-        public string PromptText { get; set; }
-
-        public bool IsDefault { get; set; }
-    }
-
-    public class UpdateSystemPromptRequest
-    {
-        [Required]
-        [StringLength(100)]
-        public string Name { get; set; }
-
-        [StringLength(500)]
-        public string Description { get; set; }
-
-        [Required]
-        public string PromptText { get; set; }
-
-        public bool IsDefault { get; set; }
-    }
-
-    public class AssignSystemPromptRequest
-    {
-        public bool IsDefault { get; set; } = true;
     }
 }
