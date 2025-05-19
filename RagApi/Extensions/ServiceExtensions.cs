@@ -37,6 +37,9 @@ public static class ServiceExtensions
         services.AddScoped<IConversationService, ConversationService>();
         services.AddScoped<IRagService, RagService>();
 
+        // Register Service Bus -service
+        services.AddScoped<IMessageBusService, MessageBusService>();
+
         // Register recruitment application services
         services.AddScoped<ICandidateService, CandidateService>();
         services.AddScoped<IJobPostingService, JobPostingService>();

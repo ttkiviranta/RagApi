@@ -9,6 +9,7 @@ using RagApi.Interfaces;
 using RagApi.Models;
 using Azure;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 
 namespace RagApi.Services
 {
@@ -16,32 +17,77 @@ namespace RagApi.Services
     {
         private readonly BlobServiceClient _blobServiceClient;
         private readonly DocumentAnalysisClient _documentAnalysisClient;
+        private readonly IMessageBusService _messageBusService;
+        private readonly ILogger<PdfService> _logger;
         private readonly string _containerName = "pdfs";
+        private const string PDF_QUEUE_NAME = "pdf-processing-queue";
 
-        public PdfService(BlobServiceClient blobServiceClient, DocumentAnalysisClient documentAnalysisClient)
+        /// <summary>
+        /// Constructor for the PDF service
+        /// </summary>
+        /// <param name="blobServiceClient">Azure Blob Storage client</param>
+        /// <param name="documentAnalysisClient">Azure Document Analysis client</param>
+        /// <param name="messageBusService">Service Bus messaging service</param>
+        /// <param name="logger">Logger for the service</param>
+        public PdfService(
+            BlobServiceClient blobServiceClient,
+            DocumentAnalysisClient documentAnalysisClient,
+            IMessageBusService messageBusService,
+            ILogger<PdfService> logger)
         {
             _blobServiceClient = blobServiceClient;
             _documentAnalysisClient = documentAnalysisClient;
+            _messageBusService = messageBusService;
+            _logger = logger;
 
             // Ensure container exists
             _blobServiceClient.GetBlobContainerClient(_containerName).CreateIfNotExists();
         }
 
+        /// <summary>
+        /// Upload a PDF file to Azure Blob Storage and send a message to Service Bus for processing
+        /// </summary>
+        /// <param name="pdfStream">Stream containing the PDF content</param>
+        /// <param name="fileName">Original file name of the PDF</param>
+        /// <returns>Unique blob name for the uploaded PDF</returns>
         public async Task<string> UploadPdfAsync(Stream pdfStream, string fileName)
         {
-            // Create a unique name for the file
-            string blobName = $"{Guid.NewGuid()}-{fileName}";
+            try
+            {
+                // Create a unique name for the file
+                string blobName = $"{Guid.NewGuid()}-{fileName}";
 
-            // Get reference to blob container
-            var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
-            var blobClient = containerClient.GetBlobClient(blobName);
+                // Get reference to blob container
+                var containerClient = _blobServiceClient.GetBlobContainerClient(_containerName);
+                var blobClient = containerClient.GetBlobClient(blobName);
 
-            // Upload file to Blob Storage
-            await blobClient.UploadAsync(pdfStream, true);
+                // Upload file to Blob Storage
+                await blobClient.UploadAsync(pdfStream, true);
 
-            return blobName;
+                // Send a message to Service Bus queue for asynchronous processing
+                await _messageBusService.SendMessageAsync(PDF_QUEUE_NAME, new
+                {
+                    BlobName = blobName,
+                    FileName = fileName,
+                    UploadTime = DateTime.UtcNow
+                });
+
+                _logger.LogInformation("PDF {FileName} uploaded as {BlobName} and message sent to Service Bus", fileName, blobName);
+
+                return blobName;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading PDF {FileName}", fileName);
+                throw;
+            }
         }
 
+        /// <summary>
+        /// Extract text from a PDF file stored in Azure Blob Storage
+        /// </summary>
+        /// <param name="blobName">Blob name of the PDF file</param>
+        /// <returns>List of document chunks containing the extracted text</returns>
         public async Task<List<DocumentChunk>> ExtractTextFromPdfAsync(string blobName)
         {
             // Get PDF file from Blob Storage
@@ -90,21 +136,27 @@ namespace RagApi.Services
 
             return chunks;
         }
+
+        /// <summary>
+        /// Extract candidate information from a PDF resume
+        /// </summary>
+        /// <param name="blobName">Blob name of the PDF file</param>
+        /// <returns>Candidate object with extracted information</returns>
         public async Task<Candidate> ExtractCandidateInfoFromPdfAsync(string blobName)
         {
-            // Hae PDF:n tekstilohkot
+            // Extract text chunks from the PDF
             var chunks = await ExtractTextFromPdfAsync(blobName);
 
-            // Yhdistä kaikki tekstilohkot yhdeksi tekstiksi
+            // Combine all text chunks into one string
             var fullText = string.Join("\n", chunks.Select(c => c.Content));
 
-            // Etsi tiedot tekstistä
+            // Extract information using regex patterns
             var firstName = ExtractValue(fullText, @"First Name:\s*(.+)");
             var lastName = ExtractValue(fullText, @"Last Name:\s*(.+)");
             var email = ExtractValue(fullText, @"Email:\s*([\w\.-]+@[\w\.-]+\.\w+)");
             var phoneNumber = ExtractValue(fullText, @"Phone:\s*(\+?\d[\d\s\-]+)");
 
-            // Luo uusi Candidate-objekti
+            // Create a new Candidate object
             return new Candidate
             {
                 Id = Guid.NewGuid().ToString(),
@@ -117,11 +169,16 @@ namespace RagApi.Services
             };
         }
 
+        /// <summary>
+        /// Helper method to extract values using regex patterns
+        /// </summary>
+        /// <param name="text">Text to search in</param>
+        /// <param name="pattern">Regex pattern with a capture group</param>
+        /// <returns>Extracted value or null if not found</returns>
         private string ExtractValue(string text, string pattern)
         {
             var match = Regex.Match(text, pattern);
             return match.Success ? match.Groups[1].Value : null;
         }
-
     }
 }

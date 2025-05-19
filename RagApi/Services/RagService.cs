@@ -27,19 +27,24 @@ namespace RagApi.Services
             _conversationService = conversationService;
         }
 
+        /// <summary>
+        /// Process a PDF file for RAG (Retrieval Augmented Generation)
+        /// Uploads the PDF and triggers asynchronous processing through Service Bus
+        /// </summary>
+        /// <param name="pdfStream">Stream containing the PDF content</param>
+        /// <param name="fileName">Original file name of the PDF</param>
+        /// <returns>Blob name that can be used to reference the document</returns>
         public async Task<string> ProcessPdfAsync(Stream pdfStream, string fileName)
         {
             // Upload PDF to Azure Blob Storage
+            // Service Bus will handle the subsequent processing asynchronously
             string blobName = await _pdfService.UploadPdfAsync(pdfStream, fileName);
 
-            // Extract text from PDF file
-            var documentChunks = await _pdfService.ExtractTextFromPdfAsync(blobName);
-
-            // Index text chunks for vector search
-            await _vectorSearchService.IndexDocumentChunksAsync(documentChunks);
-
+            // Return the blob name immediately
+            // The actual processing happens asynchronously when the Service Bus message is processed
             return blobName;
         }
+
 
         public async Task<RagResponse> QueryAsync(string query, string userId = null)
         {
