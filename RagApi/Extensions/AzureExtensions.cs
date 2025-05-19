@@ -1,5 +1,6 @@
 ﻿using Azure;
 using Azure.AI.FormRecognizer.DocumentAnalysis;
+using Azure.Messaging.ServiceBus;
 using Azure.Search.Documents;
 using Azure.Search.Documents.Indexes;
 using Azure.Storage.Blobs;
@@ -50,6 +51,17 @@ public static class AzureExtensions
         services.AddSingleton(x => new SearchIndexClient(
             new Uri(configuration["Azure:Search:Endpoint"] ?? throw new InvalidOperationException("Search endpoint not found")),
             new AzureKeyCredential(configuration["Azure:Search:Key"] ?? throw new InvalidOperationException("Search key not found"))));
+
+        // Azure Service Bus client
+        var serviceBusConnectionString = configuration.GetConnectionString("ServiceBus");
+        if (!string.IsNullOrEmpty(serviceBusConnectionString))
+        {
+            services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
+        }
+        else
+        {
+            throw new InvalidOperationException("ServiceBus connection string not found in configuration");
+        }
 
         // Configure Azure AD options
         services.Configure<AzureAdOptions>(configuration.GetSection("AzureAd"));

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RagApi.Api.Middleware;
 using RagApi.Extensions;
+using RagApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +33,10 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
         options.JsonSerializerOptions.WriteIndented = true;
     });
+
+// Add Service Bus background processor
+builder.Services.AddHostedService<PdfProcessingService>();
+
 
 var app = builder.Build();
 
