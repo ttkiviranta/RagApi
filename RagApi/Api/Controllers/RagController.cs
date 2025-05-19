@@ -1,10 +1,13 @@
-﻿using System;
+﻿// RagController.cs - Controller for RAG (Retrieval Augmented Generation) functionality
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Security.Claims;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using RagApi.Api.Models;
 using RagApi.Interfaces;
 using RagApi.Models;
@@ -16,17 +19,40 @@ namespace RagApi.Api.Controllers
     public class RagController : BaseController
     {
         private readonly IRagService _ragService;
+        private readonly IUserService _userService;
+        private readonly IConfiguration _configuration;
+        private readonly ILogger<RagController> _logger;
 
-        // Add IMapper and IRequestContext to constructor and call base constructor
+        /// <summary>
+        /// Initializes a new instance of the RagController class
+        /// </summary>
+        /// <param name="ragService">Service for RAG operations</param>
+        /// <param name="userService">Service for user management</param>
+        /// <param name="mapper">AutoMapper for object mapping</param>
+        /// <param name="requestContext">Context for the current request</param>
+        /// <param name="configuration">Application configuration</param>
+        /// <param name="logger">Logger for controller operations</param>
         public RagController(
             IRagService ragService,
+            IUserService userService,
             IMapper mapper,
-            IRequestContext requestContext)
+            IRequestContext requestContext,
+            IConfiguration configuration,
+            ILogger<RagController> logger)
             : base(mapper, requestContext)
         {
             _ragService = ragService;
+            _userService = userService;
+            _configuration = configuration;
+            _logger = logger;
         }
 
+        /// <summary>
+        /// Uploads and processes a document for RAG
+        /// </summary>
+        /// <param name="file">The PDF file to upload</param>
+        /// <param name="request">Additional metadata for the document</param>
+        /// <returns>Action result with document ID and status message</returns>
         [HttpPost("documents")]
         public async Task<IActionResult> UploadDocument(IFormFile file, [FromForm] UploadDocumentRequest request)
         {
@@ -58,6 +84,11 @@ namespace RagApi.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Performs a query against the RAG system
+        /// </summary>
+        /// <param name="request">The query request</param>
+        /// <returns>Action result with the response from the RAG system</returns>
         [HttpPost("query")]
         public async Task<IActionResult> Query([FromBody] QueryRequest request)
         {
@@ -68,7 +99,7 @@ namespace RagApi.Api.Controllers
 
             try
             {
-                var userId = GetUserIdFromClaims();
+                var userId = await GetOrCreateUserIdAsync();
                 var response = await _ragService.QueryAsync(request.Query, userId);
                 return Success(response);
             }
@@ -78,6 +109,11 @@ namespace RagApi.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Creates a new conversation
+        /// </summary>
+        /// <param name="request">The conversation creation request</param>
+        /// <returns>Action result with the created conversation</returns>
         [HttpPost("conversations")]
         public async Task<IActionResult> CreateConversation([FromBody] CreateConversationRequest request)
         {
@@ -88,22 +124,36 @@ namespace RagApi.Api.Controllers
 
             try
             {
-                var userId = GetUserIdFromClaims();
+                // Get or create user, ensuring a user always exists
+                var userId = await GetOrCreateUserIdAsync();
+
+                // Create the conversation with the validated user ID
                 var conversation = await _ragService.CreateConversationAsync(request.Title, userId);
+
                 return Success(conversation);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Authentication error during conversation creation");
+                return Unauthorized(new { error = true, message = "Authentication required to create a conversation" });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error creating conversation");
                 return Error($"Error creating conversation: {ex.Message}");
             }
         }
 
+        /// <summary>
+        /// Gets all conversations for the current user
+        /// </summary>
+        /// <returns>Action result with the list of conversations</returns>
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations()
         {
             try
             {
-                var userId = GetUserIdFromClaims();
+                var userId = await GetOrCreateUserIdAsync();
                 var conversations = await _ragService.GetConversationsAsync(userId);
                 return Success(conversations);
             }
@@ -113,6 +163,11 @@ namespace RagApi.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Gets a specific conversation by ID
+        /// </summary>
+        /// <param name="conversationId">The ID of the conversation to retrieve</param>
+        /// <returns>Action result with the requested conversation</returns>
         [HttpGet("conversations/{conversationId}")]
         public async Task<IActionResult> GetConversation(string conversationId)
         {
@@ -132,6 +187,12 @@ namespace RagApi.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Performs a query within a specific conversation context
+        /// </summary>
+        /// <param name="conversationId">The ID of the conversation</param>
+        /// <param name="request">The query request</param>
+        /// <returns>Action result with the response from the RAG system</returns>
         [HttpPost("conversations/{conversationId}/query")]
         public async Task<IActionResult> QueryInConversation(string conversationId, [FromBody] QueryRequest request)
         {
@@ -142,7 +203,7 @@ namespace RagApi.Api.Controllers
 
             try
             {
-                var userId = GetUserIdFromClaims();
+                var userId = await GetOrCreateUserIdAsync();
                 var response = await _ragService.QueryWithConversationAsync(conversationId, request.Query, userId);
                 return Success(response);
             }
@@ -156,6 +217,11 @@ namespace RagApi.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Performs job matching analysis against candidate profiles
+        /// </summary>
+        /// <param name="request">The job matching request with job posting details</param>
+        /// <returns>Action result with matching candidate analysis</returns>
         [HttpPost("job-matching")]
         public async Task<IActionResult> MatchJobCandidates([FromBody] JobMatchingRequest request)
         {
@@ -166,7 +232,7 @@ namespace RagApi.Api.Controllers
 
             try
             {
-                var userId = GetUserIdFromClaims();
+                var userId = await GetOrCreateUserIdAsync();
                 var response = await _ragService.QueryAsync(
                     $"Analyze the following job posting and find the best matching candidates:\n\n{request.JobPosting}",
                     userId);
@@ -179,10 +245,44 @@ namespace RagApi.Api.Controllers
             }
         }
 
-        // Helper for getting user id from claims (SSO)
+        /// <summary>
+        /// Helper method for extracting user ID from authentication claims
+        /// </summary>
+        /// <returns>The user ID from claims or null if not found</returns>
         private string? GetUserIdFromClaims()
         {
             return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        /// <summary>
+        /// Helper method to get a valid user ID, creating the user if necessary
+        /// </summary>
+        /// <returns>A valid user ID that can be used for operations</returns>
+        private async Task<string> GetOrCreateUserIdAsync()
+        {
+            try
+            {
+                // First try to get user ID from claims
+                var userId = GetUserIdFromClaims();
+
+                // Log if user ID not found in claims
+                if (string.IsNullOrEmpty(userId))
+                {
+                    _logger.LogInformation("User ID not found from claims");
+                }
+
+                // Get or create user based on Entra ID claims
+                var adminGroupId = _configuration["AzureAd:Groups:Admin"];
+                var user = await _userService.GetOrCreateCurrentUserAsync(adminGroupId);
+
+                // Return the confirmed user ID
+                return user.Id;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetOrCreateUserIdAsync");
+                throw;
+            }
         }
     }
 }

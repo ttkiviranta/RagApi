@@ -96,13 +96,38 @@ namespace RagApi.Services
                     // Try to retrieve relevant content with vector search
                     searchResults = await _vectorSearchService.SearchAsync(query);
 
-                    // Generate answer using ChatGPT with conversation history and RAG context
-                    answer = await _openAIService.GenerateAnswerWithHistoryAsync(query, searchResults, messages, userId);
+                    // Check if this is the first question in the conversation
+                    bool isFirstQuestion = messages.Count <= 1; // Only the user message we just added
+
+                    if (isFirstQuestion)
+                    {
+                        // For the first question, use the regular answer generation without history
+                        // This ensures a clean start without empty context confusion
+                        answer = await _openAIService.GenerateAnswerAsync(query, searchResults, userId);
+                    }
+                    else
+                    {
+                        // For follow-up questions, use conversation history
+                        answer = await _openAIService.GenerateAnswerWithHistoryAsync(query, searchResults, messages, userId);
+                    }
                 }
                 catch (Exception ex) when (ex.Message.Contains("not found") || ex.Message.Contains("index"))
                 {
                     // If search fails (e.g., no index), fall back to direct conversation
-                    answer = await _openAIService.GenerateDirectAnswerWithHistoryAsync(query, messages, userId);
+                    bool isFirstQuestion = messages.Count <= 1;
+
+                    if (isFirstQuestion)
+                    {
+                        // For first question with no search results, use direct generation without history
+                        answer = await _openAIService.GetChatCompletionsAsync(
+                            "You are a helpful assistant.",
+                            query);
+                    }
+                    else
+                    {
+                        // For follow-up questions, use history
+                        answer = await _openAIService.GenerateDirectAnswerWithHistoryAsync(query, messages, userId);
+                    }
                 }
 
                 // Add response to conversation
@@ -121,6 +146,7 @@ namespace RagApi.Services
                 throw;
             }
         }
+
 
         public async Task<Conversation> CreateConversationAsync(string title, string userId = null)
         {
