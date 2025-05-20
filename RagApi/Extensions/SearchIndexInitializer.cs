@@ -8,20 +8,31 @@ using Azure.Search.Documents.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using RagApi.Helpers;
 
 namespace RagApi.Extensions;
 
+/// <summary>
+/// Static class responsible for creating and initializing the Azure Cognitive Search index
+/// </summary>
 public static class SearchIndexInitializer
 {
+    /// <summary>
+    /// Initializes the search index if it doesn't already exist
+    /// </summary>
+    /// <param name="serviceProvider">The service provider for dependency resolution</param>
+    /// <param name="logger">The logger instance</param>
+    /// <returns>A task representing the asynchronous operation</returns>
     public static async Task InitializeSearchIndex(IServiceProvider serviceProvider, ILogger logger)
     {
         try
         {
+            // Retrieve required services from DI container
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
             var searchIndexClient = serviceProvider.GetRequiredService<SearchIndexClient>();
             var indexName = configuration["Azure:Search:IndexName"] ?? "pdf-documents";
 
-            // Check if index exists
+            // Check if the index already exists
             try
             {
                 var indexExists = await searchIndexClient.GetIndexAsync(indexName);
@@ -32,49 +43,13 @@ public static class SearchIndexInitializer
                 // Index doesn't exist, create it
                 logger.LogInformation($"Creating search index '{indexName}'...");
 
-                // Create the index with proper field definitions
+                // Get standard field definitions
+                var fieldInfos = SearchFieldBuilder.GetStandardDocumentFields();
+
+                // Create the index with generated field definitions
                 var searchIndex = new SearchIndex(indexName)
                 {
-                    Fields = new List<SearchField>()
-                    {
-                        // Key field
-                        new SearchField("id", SearchFieldDataType.String)
-                        {
-                            IsKey = true,
-                            IsFilterable = true
-                        },
-                        
-                        // Type field for document type
-                        new SearchField("type", SearchFieldDataType.String)
-                        {
-                            IsFilterable = true
-                        },
-                        
-                        // Content field for full text search
-                        new SearchField("content", SearchFieldDataType.String)
-                        {
-                            IsSearchable = true
-                        },
-                        
-                        // EntityId field for linking to database entities
-                        new SearchField("entityId", SearchFieldDataType.String)
-                        {
-                            IsFilterable = true
-                        },
-                        
-                        // CreatedAt field for sorting by date
-                        new SearchField("createdAt", SearchFieldDataType.DateTimeOffset)
-                        {
-                            IsFilterable = true,
-                            IsSortable = true
-                        },
-                        
-                        // Vector field for embeddings
-                        new SearchField("contentVector", SearchFieldDataType.Collection(SearchFieldDataType.Single))
-                        {
-                            VectorSearchDimensions = 1536
-                        }
-                    }
+                    Fields = SearchFieldBuilder.BuildFields(fieldInfos)
                 };
 
                 // Configure vector search capabilities
@@ -90,7 +65,7 @@ public static class SearchIndexInitializer
                     }
                 };
 
-                // Create the index
+                // Create the index in Azure Cognitive Search
                 await searchIndexClient.CreateIndexAsync(searchIndex);
 
                 logger.LogInformation($"Search index '{indexName}' created successfully");
