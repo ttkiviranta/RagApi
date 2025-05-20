@@ -26,13 +26,16 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add API controllers
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
-        options.JsonSerializerOptions.WriteIndented = true;
-    });
+// Add API controllers with filters
+builder.Services.AddControllers(options =>
+{
+    options.AddApiFilters(builder.Services);
+})
+.AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+    options.JsonSerializerOptions.WriteIndented = true;
+});
 
 // Add Service Bus background processor
 builder.Services.AddHostedService<PdfProcessingService>();
