@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:RagMaui.ViewModels"
+             xmlns:models="clr-namespace:RagMaui.Models"
+             x:Class="RagMaui.Views.ChatPage"
+             Title="Chat">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <Style x:Key="UserMessageFrame" TargetType="Frame">
+                <Setter Property="BackgroundColor" Value="#DCF8C6"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Margin" Value="40,5,10,5"/>
+                <Setter Property="Padding" Value="10"/>
+                <Setter Property="HasShadow" Value="True"/>
+            </Style>
+
+            <Style x:Key="SystemMessageFrame" TargetType="Frame">
+                <Setter Property="BackgroundColor" Value="#FFFFFF"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Margin" Value="10,5,40,5"/>
+                <Setter Property="Padding" Value="10"/>
+                <Setter Property="HasShadow" Value="True"/>
+            </Style>
+
+            <Style x:Key="ErrorMessageFrame" TargetType="Frame">
+                <Setter Property="BackgroundColor" Value="#FFCCCC"/>
+                <Setter Property="CornerRadius" Value="10"/>
+                <Setter Property="Margin" Value="10,5,40,5"/>
+                <Setter Property="Padding" Value="10"/>
+                <Setter Property="HasShadow" Value="True"/>
+            </Style>
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Padding="10" BackgroundColor="#f0f0f0">
+            <Label Text="{Binding ConversationTitle}" 
+                   FontSize="18" 
+                   VerticalOptions="Center"
+                   HorizontalOptions="Start" />
+            <Button Grid.Column="1"
+                    Text="Uusi keskustelu"
+                    Command="{Binding NewConversationCommand}"
+                    HorizontalOptions="End" />
+        </Grid>
+
+        <!-- Messages -->
+        <CollectionView Grid.Row="1" 
+                        ItemsSource="{Binding Messages}"
+                        Margin="0,10,0,10">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <!-- User Message -->
+                    <StackLayout>
+                        <Frame IsVisible="{Binding IsFromUser}"
+                               Style="{StaticResource UserMessageFrame}">
+                            <StackLayout>
+                                <Label Text="{Binding Content}" 
+                                       FontSize="16"/>
+                                <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}" 
+                                       FontSize="12" 
+                                       TextColor="#888888"
+                                       HorizontalOptions="End" />
+                            </StackLayout>
+                        </Frame>
+
+                        <!-- System Message (normal) -->
+                        <Frame IsVisible="{Binding IsFromUser, Converter={StaticResource InvertedBoolConverter}}"
+                               Style="{StaticResource SystemMessageFrame}">
+                            <StackLayout>
+                                <Label Text="{Binding Content}" 
+                                       FontSize="16"/>
+
+                                <!-- Sources section -->
+                                <StackLayout IsVisible="{Binding HasSources}">
+                                    <Label Text="Lähteet:" 
+                                           FontAttributes="Bold"
+                                           Margin="0,10,0,5"/>
+                                    <CollectionView ItemsSource="{Binding Sources}" 
+                                                    HeightRequest="200">
+                                        <CollectionView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Frame Padding="10" Margin="0,0,0,5" BorderColor="#dddddd">
+                                                    <StackLayout>
+                                                        <Label Text="{Binding Title}" 
+                                                               FontAttributes="Bold"/>
+                                                        <Label Text="{Binding Content}" 
+                                                               MaxLines="2" 
+                                                               LineBreakMode="TailTruncation"/>
+                                                    </StackLayout>
+                                                </Frame>
+                                            </DataTemplate>
+                                        </CollectionView.ItemTemplate>
+                                    </CollectionView>
+                                </StackLayout>
+
+                                <Label Text="{Binding Timestamp, StringFormat='{0:HH:mm}'}" 
+                                       FontSize="12" 
+                                       TextColor="#888888"
+                                       HorizontalOptions="Start" />
+                            </StackLayout>
+                        </Frame>
+                    </StackLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Input area -->
+        <Grid Grid.Row="2" 
+              ColumnDefinitions="*,Auto" 
+              RowDefinitions="Auto"
+              Padding="10" 
+              BackgroundColor="#f0f0f0">
+            <Entry Grid.Column="0"
+                   Placeholder="Kirjoita viesti..."
+                   Text="{Binding UserMessage}"
+                   ReturnCommand="{Binding SendMessageCommand}" />
+
+            <Button Grid.Column="1"
+                    Text="Lähetä"
+                    Command="{Binding SendMessageCommand}" />
+        </Grid>
+
+        <!-- Loading overlay -->
+        <Grid Grid.RowSpan="3" 
+              BackgroundColor="#80000000"
+              IsVisible="{Binding IsBusy}">
+            <StackLayout VerticalOptions="Center" 
+                         HorizontalOptions="Center">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" 
+                                   Color="White" />
+                <Label Text="Käsitellään..." 
+                       TextColor="White" 
+                       HorizontalOptions="Center" />
+            </StackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>
