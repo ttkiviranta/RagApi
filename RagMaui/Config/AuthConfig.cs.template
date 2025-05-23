@@ -1,0 +1,14 @@
+namespace RagMaui.Config
+{
+    public static class AuthConfig
+    {
+        // Korvaa nämä arvot omillasi
+        public static readonly string ClientId = "your-client-id";
+        public static readonly string TenantId = "your-tenant-id";
+        public static readonly string Authority = "https://login.microsoftonline.com/your-tenant-id";
+        public static readonly string ApiScope = "api://your-api-id/access_as_user";
+        public static readonly string ApiBaseUrl = "https://localhost:7296";
+        public static readonly string AdminGroupId = "your-admin-group-id";
+        public static readonly string UserGroupId = "your-user-group-id";
+    }
+}

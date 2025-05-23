@@ -12,6 +12,12 @@ appsettings.Production.json
 # Don't ignore template
 !appsettings.json.template
 
+# MAUI config files with secrets
+RagMaui/Config/AuthConfig.cs
+
+# Don't ignore template
+!RagMaui/Config/AuthConfig.cs.template
+
 # User-specific files
 *.rsuser
 *.suo
@@ -370,3 +376,4 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/RagApi/RagApi.Tests/RagApi.Tests.sln
