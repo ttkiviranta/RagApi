@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RagMaui.Views.DocumentUploadPage"
+             Title="Lataa dokumentti">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="20">
+        <!-- Header -->
+        <StackLayout Grid.Row="0" Margin="0,20">
+            <Label Text="Dokumentin lataus" 
+                   FontSize="24" 
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center" />
+            <Label Text="Lataa PDF-tiedostoja RAG-järjestelmään" 
+                   FontSize="16"
+                   HorizontalOptions="Center"
+                   HorizontalTextAlignment="Center" />
+        </StackLayout>
+
+        <!-- Content -->
+        <ScrollView Grid.Row="1">
+            <StackLayout Spacing="20">
+                <!-- Document Type -->
+                <Frame Padding="15" CornerRadius="5">
+                    <StackLayout>
+                        <Label Text="Dokumentin tyyppi:" 
+                               FontSize="18"
+                               Margin="0,0,0,10" />
+                        <Picker Title="Valitse dokumentin tyyppi"
+                                ItemsSource="{Binding DocumentTypes}"
+                                SelectedItem="{Binding DocumentType}" />
+                    </StackLayout>
+                </Frame>
+
+                <!-- Status -->
+                <Frame Padding="15" 
+                       CornerRadius="5"
+                       BackgroundColor="{Binding IsError, Converter={StaticResource BoolToErrorBackgroundConverter}}">
+                    <StackLayout>
+                        <Label Text="Tila:" 
+                               FontSize="18" 
+                               Margin="0,0,0,10" />
+                        <Label Text="{Binding StatusMessage}" 
+                               FontSize="16"
+                               HorizontalTextAlignment="Center" />
+                        <ActivityIndicator IsRunning="{Binding IsUploading}"
+                                           IsVisible="{Binding IsUploading}"
+                                           Margin="0,10" />
+                    </StackLayout>
+                </Frame>
+
+                <!-- Information -->
+                <Frame Padding="15" CornerRadius="5">
+                    <StackLayout>
+                        <Label Text="Tuetut tiedostotyypit:" 
+                               FontSize="16" 
+                               FontAttributes="Bold" />
+                        <Label Text="• PDF (.pdf)" FontSize="14" />
+
+                        <Label Text="Huomioitavaa:" 
+                               FontSize="16" 
+                               FontAttributes="Bold"
+                               Margin="0,10,0,5" />
+                        <Label Text="• Maksimikoko: 10 Mt" FontSize="14" />
+                        <Label Text="• Suositeltava sivumäärä: alle 50 sivua" FontSize="14" />
+                        <Label Text="• Tekstintunnistus toimii parhaiten selkeillä dokumenteilla" FontSize="14" />
+                    </StackLayout>
+                </Frame>
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Upload Button -->
+        <Button Grid.Row="2"
+                Text="Valitse ja lataa dokumentti"
+                Command="{Binding UploadDocumentCommand}"
+                Margin="0,20,0,0"
+                HeightRequest="50"
+                FontSize="18" />
+    </Grid>
+</ContentPage>

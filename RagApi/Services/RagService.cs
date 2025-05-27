@@ -27,19 +27,24 @@ namespace RagApi.Services
             _conversationService = conversationService;
         }
 
+        /// <summary>
+        /// Process a PDF file for RAG (Retrieval Augmented Generation)
+        /// Uploads the PDF and triggers asynchronous processing through Service Bus
+        /// </summary>
+        /// <param name="pdfStream">Stream containing the PDF content</param>
+        /// <param name="fileName">Original file name of the PDF</param>
+        /// <returns>Blob name that can be used to reference the document</returns>
         public async Task<string> ProcessPdfAsync(Stream pdfStream, string fileName)
         {
             // Upload PDF to Azure Blob Storage
+            // Service Bus will handle the subsequent processing asynchronously
             string blobName = await _pdfService.UploadPdfAsync(pdfStream, fileName);
 
-            // Extract text from PDF file
-            var documentChunks = await _pdfService.ExtractTextFromPdfAsync(blobName);
-
-            // Index text chunks for vector search
-            await _vectorSearchService.IndexDocumentChunksAsync(documentChunks);
-
+            // Return the blob name immediately
+            // The actual processing happens asynchronously when the Service Bus message is processed
             return blobName;
         }
+
 
         public async Task<RagResponse> QueryAsync(string query, string userId = null)
         {
@@ -96,13 +101,38 @@ namespace RagApi.Services
                     // Try to retrieve relevant content with vector search
                     searchResults = await _vectorSearchService.SearchAsync(query);
 
-                    // Generate answer using ChatGPT with conversation history and RAG context
-                    answer = await _openAIService.GenerateAnswerWithHistoryAsync(query, searchResults, messages, userId);
+                    // Check if this is the first question in the conversation
+                    bool isFirstQuestion = messages.Count <= 1; // Only the user message we just added
+
+                    if (isFirstQuestion)
+                    {
+                        // For the first question, use the regular answer generation without history
+                        // This ensures a clean start without empty context confusion
+                        answer = await _openAIService.GenerateAnswerAsync(query, searchResults, userId);
+                    }
+                    else
+                    {
+                        // For follow-up questions, use conversation history
+                        answer = await _openAIService.GenerateAnswerWithHistoryAsync(query, searchResults, messages, userId);
+                    }
                 }
                 catch (Exception ex) when (ex.Message.Contains("not found") || ex.Message.Contains("index"))
                 {
                     // If search fails (e.g., no index), fall back to direct conversation
-                    answer = await _openAIService.GenerateDirectAnswerWithHistoryAsync(query, messages, userId);
+                    bool isFirstQuestion = messages.Count <= 1;
+
+                    if (isFirstQuestion)
+                    {
+                        // For first question with no search results, use direct generation without history
+                        answer = await _openAIService.GetChatCompletionsAsync(
+                            "You are a helpful assistant.",
+                            query);
+                    }
+                    else
+                    {
+                        // For follow-up questions, use history
+                        answer = await _openAIService.GenerateDirectAnswerWithHistoryAsync(query, messages, userId);
+                    }
                 }
 
                 // Add response to conversation
@@ -121,6 +151,7 @@ namespace RagApi.Services
                 throw;
             }
         }
+
 
         public async Task<Conversation> CreateConversationAsync(string title, string userId = null)
         {
