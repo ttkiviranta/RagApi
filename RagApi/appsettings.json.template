@@ -17,7 +17,8 @@
   "AllowedHosts": "*",
   "ConnectionStrings": {
     "DefaultConnection": "YOUR_SQL_CONNECTION_STRING",
-    "AzureBlobStorage": "YOUR_AZURE_BLOB_STORAGE_CONNECTION_STRING"
+    "AzureBlobStorage": "YOUR_AZURE_BLOB_STORAGE_CONNECTION_STRING",
+    "ServiceBus": "YOUR_AZURE_SERVICE_BUS_CONNECTION_STRING"
   },
   "Azure": {
     "FormRecognizer": {
@@ -34,6 +35,11 @@
       "Key": "YOUR_OPENAI_KEY",
       "EmbeddingDeployment": "text-embedding-ada-002",
       "ChatDeployment": "gpt-35-turbo"
+    },
+    "ServiceBus": {
+      "QueueNames": {
+        "PdfProcessing": "pdf-processing-queue"
+      }
     }
   },
   "AzureAd": {

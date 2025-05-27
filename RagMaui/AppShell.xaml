@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="RagMaui.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:views="clr-namespace:RagMaui.Views"
+    Shell.FlyoutBehavior="Disabled"
+    Title="RagMaui">
+
+    <TabBar>
+        <Tab Title="Chat" Icon="chat_icon.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate views:ChatPage}" />
+        </Tab>
+
+        <Tab Title="Keskustelut" Icon="history_icon.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate views:ConversationListPage}" />
+        </Tab>
+
+        <Tab Title="Dokumentit" Icon="document_icon.png">
+            <ShellContent
+                ContentTemplate="{DataTemplate views:DocumentUploadPage}" />
+        </Tab>
+    </TabBar>
+
+</Shell>

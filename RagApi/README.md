@@ -7,7 +7,7 @@ RagAPI is a powerful .NET 8 web API that combines document processing, vector se
 RagAPI uses the Retrieval Augmented Generation (RAG) pattern to enhance AI responses with relevant information from your documents. This enables more accurate, contextual, and truthful AI-generated answers.
 
 Key features:
-- Document processing (PDF support)
+- Document processing (PDF support) 
 - Semantic vector search
 - Conversational memory
 - Customizable system prompts
@@ -15,6 +15,16 @@ Key features:
 - Interview management
 - Application tracking
 - Candidate management
+
+## Document Processing
+
+PDF documents are processed asynchronously using Azure Service Bus:
+1. Documents are uploaded to Azure Blob Storage
+2. A message is sent to Service Bus queue
+3. Background service processes the document:
+   - Extracts text using Azure Document Intelligence
+   - Creates vector embeddings using Azure OpenAI
+   - Indexes content in Azure Cognitive Search
 
 ## Architecture
 
@@ -24,6 +34,7 @@ RagAPI integrates several Azure services:
 - **Azure OpenAI**: Generate contextual responses
 - **Azure Blob Storage**: Store original documents
 - **Azure SQL Database**: Store conversations, applications, interviews, and system settings
+- **Azure Service Bus**: Message queue for asynchronous PDF processing
 
 ## API Endpoints
 
@@ -184,7 +195,8 @@ The application uses the following configuration values in `appsettings.json`:
 {
   "ConnectionStrings": {
     "DefaultConnection": "Your SQL connection string",
-    "AzureBlobStorage": "Your Azure Blob Storage connection string"
+    "AzureBlobStorage": "Your Azure Blob Storage connection string",
+    "ServiceBus": "Your Azure Service Bus connection string"
   },
   "Azure": {
     "FormRecognizer": {

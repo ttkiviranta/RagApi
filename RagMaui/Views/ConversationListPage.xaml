@@ -1,0 +1,72 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:RagMaui.Models"
+             x:Class="RagMaui.Views.ConversationListPage"
+             Title="Keskustelut">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header -->
+        <Grid Grid.Row="0" 
+              ColumnDefinitions="*,Auto" 
+              Padding="10" 
+              BackgroundColor="#f0f0f0">
+            <Label Text="Keskustelut" 
+                   FontSize="22" 
+                   FontAttributes="Bold"
+                   VerticalOptions="Center" />
+            <Button Grid.Column="1"
+                    Text="Uusi keskustelu" 
+                    Command="{Binding CreateConversationCommand}"/>
+        </Grid>
+
+        <!-- Conversation list -->
+        <RefreshView Grid.Row="1" 
+                     Command="{Binding RefreshCommand}"
+                     IsRefreshing="{Binding IsLoading}">
+            <CollectionView ItemsSource="{Binding Conversations}"
+                            SelectedItem="{Binding SelectedConversation, Mode=TwoWay}"
+                            SelectionMode="Single">
+                <CollectionView.EmptyView>
+                    <StackLayout Padding="20" 
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center">
+                        <Label Text="Ei keskusteluja" 
+                               FontSize="18"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="Luo uusi keskustelu aloittaaksesi" 
+                               FontSize="14"
+                               HorizontalTextAlignment="Center" />
+                    </StackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="10,5" Padding="15" CornerRadius="5">
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <Label Grid.Column="0" Grid.Row="0"
+                                       Text="{Binding Title}" 
+                                       FontAttributes="Bold"
+                                       FontSize="16" />
+                                <Label Grid.Column="1" Grid.Row="0"
+                                       Text="{Binding UpdatedAt, StringFormat='{0:dd.MM.yyyy}'}" 
+                                       FontSize="14"
+                                       TextColor="#888888" />
+                                <Label Grid.Column="1" Grid.Row="1"
+                                       Text="{Binding UpdatedAt, StringFormat='{0:HH:mm}'}" 
+                                       FontSize="14"
+                                       TextColor="#888888" />
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+        <!-- Loading indicator -->
+        <ActivityIndicator Grid.RowSpan="2"
+                           IsRunning="{Binding IsLoading}"
+                           IsVisible="{Binding IsLoading}"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Center" />
+    </Grid>
+</ContentPage>

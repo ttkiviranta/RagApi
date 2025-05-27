@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Moq;
+using RagApi.Api.Models;
 using RagApi.Interfaces;
 using RagApi.Interfaces.Repositories;
 using RagApi.Models;
@@ -19,14 +20,25 @@ namespace RagApi.Tests.Services
         private readonly Mock<IUnitOfWork> _mockUnitOfWork;
         private readonly Mock<ICandidateRepository> _mockCandidateRepository;
         private readonly Mock<IDocumentService> _mockDocumentService;
+        private readonly Mock<IUserService> _mockUserService;
 
         public CandidateServiceTests()
         {
             _mockCandidateRepository = new Mock<ICandidateRepository>();
             _mockUnitOfWork = new Mock<IUnitOfWork>();
             _mockDocumentService = new Mock<IDocumentService>();
+            _mockUserService = new Mock<IUserService>();
 
             _mockUnitOfWork.Setup(uow => uow.Candidates).Returns(_mockCandidateRepository.Object);
+
+            // Setup IUserService mock for potential CreateUserAsync calls
+            _mockUserService.Setup(svc => svc.CreateUserAsync(It.IsAny<CreateUserRequest>()))
+                .ReturnsAsync((CreateUserRequest req) => new User
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Username = req.Username,
+                    Email = req.Email
+                });
         }
 
         [Fact]
@@ -42,7 +54,7 @@ namespace RagApi.Tests.Services
             _mockCandidateRepository.Setup(repo => repo.GetAllAsync())
                 .ReturnsAsync(candidates);
 
-            var service = new CandidateService(_mockUnitOfWork.Object, _mockDocumentService.Object);
+            var service = new CandidateService(_mockUnitOfWork.Object, _mockDocumentService.Object, _mockUserService.Object);
 
             // Act
             var result = await service.GetAllAsync();
@@ -70,7 +82,7 @@ namespace RagApi.Tests.Services
                 .Callback<Candidate>(c => savedCandidate = c)
                 .Returns(Task.CompletedTask);
 
-            var service = new CandidateService(_mockUnitOfWork.Object, _mockDocumentService.Object);
+            var service = new CandidateService(_mockUnitOfWork.Object, _mockDocumentService.Object, _mockUserService.Object);
 
             // Act
             var result = await service.CreateAsync(dto, null);
@@ -107,7 +119,7 @@ namespace RagApi.Tests.Services
             _mockCandidateRepository.Setup(repo => repo.GetByIdAsync("candidate-1"))
                 .ReturnsAsync(existingCandidate);
 
-            var service = new CandidateService(_mockUnitOfWork.Object, _mockDocumentService.Object);
+            var service = new CandidateService(_mockUnitOfWork.Object, _mockDocumentService.Object, _mockUserService.Object);
 
             // Act
             var result = await service.UpdateAsync("candidate-1", dto);
