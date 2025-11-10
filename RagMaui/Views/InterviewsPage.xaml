@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RagMaui.Views.InterviewsPage"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*">
+        <ActivityIndicator Grid.RowSpan="2"
+                           IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="CenterAndExpand"
+                           VerticalOptions="CenterAndExpand" />
+        
+        <RefreshView Grid.Row="1" 
+                     IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Interviews}">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout VerticalOptions="Center" 
+                                         HorizontalOptions="Center">
+                        <Label Text="No interviews available" 
+                               FontSize="18" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="5" Padding="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding ApplicationId}" 
+                                           FontSize="16" 
+                                           FontAttributes="Bold" />
+                                    <Label Text="{Binding ScheduledDate, StringFormat='{0:MMM dd, yyyy HH:mm}'}" />
+                                    <Label Text="{Binding Status}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" 
+                                       Text="{Binding InterviewType}"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>

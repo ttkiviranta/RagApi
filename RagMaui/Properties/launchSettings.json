@@ -1,0 +1,24 @@
+{
+  "profiles": {
+    "Windows (Unpackaged)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    },
+    "Windows (Packaged)": {
+      "commandName": "MsixPackage",
+      "nativeDebugging": false
+    },
+    "Android (Local Device)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    },
+    "iOS (Local Device)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    },
+    "macOS (Local Machine)": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="RagMaui.Views.CandidatesPage"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*">
+        <ActivityIndicator Grid.RowSpan="2"
+                           IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="CenterAndExpand"
+                           VerticalOptions="CenterAndExpand" />
+        
+        <RefreshView Grid.Row="1" 
+                     IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Candidates}">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout VerticalOptions="Center" 
+                                         HorizontalOptions="Center">
+                        <Label Text="No candidates available" 
+                               FontSize="18" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Frame Margin="5" Padding="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding Name}" 
+                                           FontSize="16" 
+                                           FontAttributes="Bold" />
+                                    <Label Text="{Binding Email}" />
+                                    <Label Text="{Binding Skills}" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" 
+                                                    VerticalOptions="Center">
+                                    <Label Text="{Binding Status}" />
+                                    <Label Text="{Binding MatchScore, StringFormat='{0:F1}%'}" 
+                                           FontAttributes="Bold" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Frame>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+    </Grid>
+</ContentPage>
